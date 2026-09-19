@@ -32,6 +32,18 @@ VITE_API_BASE_URL=http://localhost:8080
 
 현재 백엔드 `OrderController`에는 고객 주문 목록 조회 endpoint가 없으므로 `/orders` 목록은 임시 데이터로 유지하고, 상세 화면은 UUID 주문번호가 들어오면 실제 API를 조회합니다. 목록 API가 추가되면 같은 query 계층에 연결합니다.
 
+배송·환불 API는 `src/features/delivery`와 `src/features/refunds`에서 관리합니다.
+
+- `GET /api/v1/deliveries/{deliveryId}`: 배송 상세 조회
+- `GET /api/v1/deliveries?orderId={orderId}`: 판매자 주문별 배송 목록
+- `PATCH /api/v1/deliveries/{deliveryId}/ship`: 배송 시작
+- `POST /api/v1/order-items/{orderItemId}/refunds`: 환불 신청
+- `PATCH /api/v1/refunds/{refundId}/cancel`: 환불 신청 취소
+- `PATCH /api/v1/refunds/approve`: 판매자 환불 일괄 승인
+- `PATCH /api/v1/refunds/{refundId}/reject`: 판매자 환불 거절
+
+알림 서비스는 현재 domain과 enum만 있고 controller 및 외부 API가 백엔드에 구현되어 있지 않습니다. 따라서 프론트엔드에서는 알림 화면 구조만 유지하고, endpoint가 추가되면 `src/features/notifications`를 새로 연결합니다.
+
 ## 상태 처리
 
 모든 API 화면은 최소한 다음 상태를 고려합니다.

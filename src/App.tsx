@@ -5,6 +5,7 @@ import { login, signup } from './features/auth/api'
 import { useCreateOrder, useOrder, usePreparePayment } from './features/orders/hooks'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
+import { useRequestRefund } from './features/refunds/hooks'
 
 type Product = {
   id: string
@@ -557,6 +558,11 @@ function OrdersPage() {
 function OrderDetailPage() {
   const { orderId } = useParams()
   const orderQuery = useOrder(orderId)
+  const refundMutation = useRequestRefund()
+  const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
+  const firstOrderItem = firstDeliveryGroup?.items[0]
+  const firstOrderItemId = firstOrderItem?.orderItemId
+  const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
   const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
   return (
@@ -585,25 +591,41 @@ function OrderDetailPage() {
                 🍓
               </div>
               <div>
-                <p className="font-bold">논산 설향 딸기</p>
-                <p className="mt-1 text-sm text-slate-500">500g · 2개</p>
+                <p className="font-bold">{firstOrderItem?.productName ?? '논산 설향 딸기'}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  상품 1종 · {firstOrderItem?.quantity ?? 2}개
+                </p>
               </div>
-              <strong className="ml-auto">25,800원</strong>
+              <strong className="ml-auto">{money(firstOrderItem?.unitPrice ?? 25_800)}</strong>
             </div>
             <div className="mt-8 border-t border-slate-100 pt-6">
               <h2 className="font-bold">배송 현황</h2>
               <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
                 <div>
                   <div className="mx-auto h-3 w-3 rounded-full bg-emerald-600" />
-                  <p className="mt-2 font-semibold text-emerald-700">주문 완료</p>
+                  <p className="mt-2 font-semibold text-emerald-700">
+                    {firstDeliveryGroup?.groupStatus === 'PREPARING' ? '상품 준비' : '주문 완료'}
+                  </p>
                 </div>
                 <div>
-                  <div className="mx-auto h-3 w-3 rounded-full bg-emerald-600" />
-                  <p className="mt-2 font-semibold text-emerald-700">상품 준비</p>
+                  <div
+                    className={`mx-auto h-3 w-3 rounded-full ${firstDeliveryGroup?.groupStatus === 'SHIPPED' || firstDeliveryGroup?.groupStatus === 'DELIVERED' ? 'bg-emerald-600' : 'bg-slate-200'}`}
+                  />
+                  <p
+                    className={`mt-2 ${firstDeliveryGroup?.groupStatus === 'SHIPPED' || firstDeliveryGroup?.groupStatus === 'DELIVERED' ? 'font-semibold text-emerald-700' : 'text-slate-400'}`}
+                  >
+                    배송 중
+                  </p>
                 </div>
                 <div>
-                  <div className="mx-auto h-3 w-3 rounded-full bg-slate-200" />
-                  <p className="mt-2 text-slate-400">배송 완료</p>
+                  <div
+                    className={`mx-auto h-3 w-3 rounded-full ${firstDeliveryGroup?.groupStatus === 'DELIVERED' ? 'bg-emerald-600' : 'bg-slate-200'}`}
+                  />
+                  <p
+                    className={`mt-2 ${firstDeliveryGroup?.groupStatus === 'DELIVERED' ? 'font-semibold text-emerald-700' : 'text-slate-400'}`}
+                  >
+                    배송 완료
+                  </p>
                 </div>
               </div>
             </div>
@@ -626,10 +648,26 @@ function OrderDetailPage() {
             </div>
             <button
               type="button"
-              className="mt-7 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950"
+              disabled={!canRequestRefund || refundMutation.isPending}
+              onClick={() =>
+                firstOrderItemId &&
+                refundMutation.mutate({
+                  orderItemId: firstOrderItemId,
+                  reason: '고객 환불 요청',
+                })
+              }
+              className="mt-7 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              주문 취소 요청
+              {refundMutation.isPending ? '환불 요청 중...' : '환불 요청'}
             </button>
+            {refundMutation.isSuccess && (
+              <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
+            )}
+            {refundMutation.isError && (
+              <p className="mt-3 text-xs text-rose-300">
+                환불 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.
+              </p>
+            )}
           </aside>
         </div>
       </main>
