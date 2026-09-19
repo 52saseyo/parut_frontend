@@ -323,13 +323,16 @@ function ProductCard({ product }: { product: Product }) {
         </h3>
         <p className="mt-2 text-lg font-bold text-slate-950">{money(product.price)}</p>
         {product.timeDeal && (
-          <p className="mt-1 text-xs font-semibold text-slate-600">
-            남은 수량 {product.stock.toLocaleString('ko-KR')}개
-          </p>
-        )}
-        {isLowStock(product) && (
-          <p className="mt-1 text-xs font-bold text-orange-600">
-            마감 임박 · {product.stock}개 남음
+          <p
+            className={
+              isLowStock(product)
+                ? 'mt-2 inline-flex rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-extrabold text-orange-700 shadow-sm'
+                : 'mt-1 text-xs font-semibold text-slate-600'
+            }
+          >
+            {isLowStock(product)
+              ? `마감 임박 · ${product.stock.toLocaleString('ko-KR')}개 남음`
+              : `남은 수량 ${product.stock.toLocaleString('ko-KR')}개`}
           </p>
         )}
         <p className="mt-1 text-xs text-slate-500">
@@ -719,7 +722,11 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
                 {product.stock > 0 ? '판매 중' : '품절'}
               </StatusBadge>
               {product.timeDeal && <StatusBadge tone="orange">타임딜</StatusBadge>}
-              {isLowStock(product) && <StatusBadge tone="orange">마감 임박</StatusBadge>}
+              {isLowStock(product) && (
+                <span className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-extrabold text-orange-700 shadow-sm">
+                  마감 임박 · {product.stock.toLocaleString('ko-KR')}개 남음
+                </span>
+              )}
             </div>
             <p className="mt-5 text-sm text-slate-500">
               {product.category} · {product.seller}
