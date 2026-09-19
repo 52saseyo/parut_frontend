@@ -4,6 +4,7 @@ import {
   convertProductToTimeDeal,
   createSellerProduct,
   createTimeDeal,
+  deleteSellerProduct,
   getSellerProduct,
   getSellerProducts,
   getSellerStocks,
@@ -63,6 +64,7 @@ export function useSellerProductMutations() {
   return {
     create: useMutation({ mutationFn: (input: CreateProductInput) => createSellerProduct(input), onSuccess: invalidate }),
     update: useMutation({ mutationFn: ({ productId, input }: { productId: string; input: UpdateProductInput }) => updateSellerProduct(productId, input), onSuccess: invalidate }),
+    remove: useMutation({ mutationFn: (productId: string) => deleteSellerProduct(productId), onSuccess: invalidate }),
     updateStatus: useMutation({ mutationFn: ({ productId, status }: { productId: string; status: ProductStatus }) => updateSellerProductStatus(productId, status), onSuccess: invalidate }),
     updateStock: useMutation({ mutationFn: ({ productId, totalQuantity }: { productId: string; totalQuantity: number }) => updateSellerStock(productId, totalQuantity), onSuccess: invalidate }),
     uploadImage: useMutation({ mutationFn: ({ productId, file }: { productId: string; file: File }) => uploadProductImage(productId, file), onSuccess: invalidate }),
