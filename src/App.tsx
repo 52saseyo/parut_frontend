@@ -8,6 +8,7 @@ import { useProduct, useProducts } from './features/products/hooks'
 import { useRequestRefund } from './features/refunds/hooks'
 import type { ApiTimeDeal } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
+import { authStorage } from './lib/api'
 
 type Product = {
   id: string
@@ -270,6 +271,34 @@ function ProductCardSkeleton() {
   )
 }
 
+function ProductDetailSkeleton({ timeDeal = false }: { timeDeal?: boolean }) {
+  return (
+    <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+      <div className="mb-8 flex items-center gap-3 text-sm font-semibold text-slate-500">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" />
+        <span>
+          {timeDeal ? '타임딜 상세를 불러오는 중입니다.' : '상품 상세를 불러오는 중입니다.'}
+        </span>
+      </div>
+      <div className="grid animate-pulse gap-10 lg:grid-cols-2 lg:items-start">
+        <div className="h-80 rounded-2xl bg-slate-200" />
+        <div className="space-y-5">
+          <div className="h-6 w-24 rounded-full bg-slate-200" />
+          <div className="h-4 w-32 rounded bg-slate-200" />
+          <div className="h-10 w-4/5 rounded bg-slate-200" />
+          <div className="h-9 w-32 rounded bg-slate-200" />
+          <div className="space-y-4 border-y border-slate-200 py-6">
+            <div className="h-4 w-full rounded bg-slate-200" />
+            <div className="h-4 w-full rounded bg-slate-200" />
+            <div className="h-4 w-full rounded bg-slate-200" />
+          </div>
+          <div className="h-14 w-full rounded-xl bg-emerald-100" />
+        </div>
+      </div>
+    </main>
+  )
+}
+
 function Header() {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur">
@@ -521,13 +550,18 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
   const countdown = useRemainingTime(product?.endAt)
   const isLoading = productQuery.isLoading || timeDealQuery.isLoading
   const isError = productQuery.isError || timeDealQuery.isError
-  if (!product && (isLoading || isError)) {
+  if (!product && isLoading) {
+    return (
+      <PublicLayout>
+        <ProductDetailSkeleton timeDeal={timeDeal} />
+      </PublicLayout>
+    )
+  }
+  if (!product && isError) {
     return (
       <PublicLayout>
         <main className="mx-auto max-w-6xl px-5 py-24 text-center sm:px-8">
-          <p className="text-sm text-slate-500">
-            {isLoading ? '상품 정보를 불러오는 중입니다.' : '상품 정보를 불러오지 못했습니다.'}
-          </p>
+          <p className="text-sm text-slate-500">상품 정보를 불러오지 못했습니다.</p>
           <Link
             to={timeDeal ? '/time-deals' : '/products'}
             className="mt-5 inline-block font-bold text-emerald-700"
@@ -631,6 +665,7 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
 }
 
 function OrdersPage() {
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
   const orders = [
     {
       id: 'P-20250918-001',
@@ -654,29 +689,47 @@ function OrdersPage() {
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
         <p className="text-sm font-bold text-emerald-700">MY PARUT</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">주문 내역</h1>
-        <div className="mt-8 space-y-4">
-          {orders.map((order) => (
-            <Link
-              to={`/orders/${order.id}`}
-              key={order.id}
-              className="block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-emerald-300 hover:shadow-sm sm:p-6"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs text-slate-500">
-                    {order.date} · {order.id}
-                  </p>
-                  <p className="mt-2 font-bold text-slate-950">{order.product}</p>
+        {isAuthenticated ? (
+          <div className="mt-8 space-y-4">
+            {orders.map((order) => (
+              <Link
+                to={`/orders/${order.id}`}
+                key={order.id}
+                className="block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-emerald-300 hover:shadow-sm sm:p-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-slate-500">
+                      {order.date} · {order.id}
+                    </p>
+                    <p className="mt-2 font-bold text-slate-950">{order.product}</p>
+                  </div>
+                  <StatusBadge tone={order.tone}>{order.status}</StatusBadge>
                 </div>
-                <StatusBadge tone={order.tone}>{order.status}</StatusBadge>
-              </div>
-              <div className="mt-5 flex justify-between border-t border-slate-100 pt-4 text-sm">
-                <span className="text-slate-500">결제 금액</span>
-                <strong>{money(order.amount)}</strong>
-              </div>
+                <div className="mt-5 flex justify-between border-t border-slate-100 pt-4 text-sm">
+                  <span className="text-slate-500">결제 금액</span>
+                  <strong>{money(order.amount)}</strong>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-16 text-center">
+            <div className="text-5xl">🔐</div>
+            <h2 className="mt-5 text-xl font-black text-slate-950">로그인이 필요한 기능입니다</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              주문 내역은 로그인 후 확인할 수 있습니다.
+              <br />
+              로그인하고 나의 주문 상태를 확인해 보세요.
+            </p>
+            <Link
+              to="/login"
+              className="mt-7 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800"
+            >
+              로그인하러 가기
             </Link>
-          ))}
-        </div>
+          </div>
+        )}
       </main>
     </PublicLayout>
   )
