@@ -17,7 +17,6 @@ export type CreateOrderInput = {
 
 export type CreateTimeDealOrderInput = {
   timeDealId: string
-  productId: string
   quantity: number
   recipient: Recipient
 }
