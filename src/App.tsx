@@ -2259,7 +2259,7 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
               <NavLink
                 key={to}
                 to={to}
-                end={to === `/${role}`}
+                end={to === `/${role}` || to === '/seller/time-deals'}
                 className={({ isActive }) =>
                   `block rounded-xl px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`
                 }
