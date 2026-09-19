@@ -322,6 +322,11 @@ function ProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
         <p className="mt-2 text-lg font-bold text-slate-950">{money(product.price)}</p>
+        {product.timeDeal && (
+          <p className="mt-1 text-xs font-semibold text-slate-600">
+            남은 수량 {product.stock.toLocaleString('ko-KR')}개
+          </p>
+        )}
         {isLowStock(product) && (
           <p className="mt-1 text-xs font-bold text-orange-600">
             마감 임박 · {product.stock}개 남음
