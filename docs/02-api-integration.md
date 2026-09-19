@@ -10,7 +10,9 @@ VITE_API_BASE_URL=http://localhost:8080
 
 `.env`는 커밋하지 않고 `.env.example`만 저장소에 공유합니다.
 
-현재 구현된 공개 상품 API는 `GET /api/v1/products?size=10`과 `GET /api/v1/products/{productId}`를 사용합니다. 목록은 cursor 기반 응답이며, 상품 상세는 이미지가 등록되지 않은 상품에서 백엔드가 오류를 반환할 수 있으므로 화면에서는 오류 상태를 별도로 처리합니다.
+일반 상품 화면은 `GET /api/v1/products?size=10`과 `GET /api/v1/products/{productId}`를 사용합니다. 목록은 cursor 기반 응답이며, 상품 상세는 이미지가 등록되지 않은 상품에서 백엔드가 오류를 반환할 수 있으므로 화면에서는 오류 상태를 별도로 처리합니다.
+
+타임딜은 일반 상품 API와 분리하여 `GET /api/v1/time-deals?status=ACTIVE&size=10`과 `GET /api/v1/time-deals/{timeDealId}`를 사용합니다. 타임딜 목록·상세의 식별자는 `productId`가 아니라 `timeDealId`입니다. API 응답이 비어 있거나 실패하면 목업 데이터를 노출하지 않고 빈 상태 또는 오류 안내를 표시합니다.
 
 ## 요청 규칙
 
@@ -20,7 +22,7 @@ VITE_API_BASE_URL=http://localhost:8080
 - 서버 데이터 조회는 TanStack Query를 통해 처리합니다.
 - 데이터 변경은 mutation으로 처리하고 성공 시 관련 query를 무효화합니다.
 
-현재 구현된 API 모듈은 `src/features/auth`와 `src/features/products`에 있으며, 백엔드 응답이 없을 때 화면 확인을 위해 기존 목업 데이터를 fallback으로 사용합니다.
+현재 구현된 API 모듈은 `src/features/auth`, `src/features/products`, `src/features/timedeals`에 있습니다. 일반 상품과 타임딜의 목록·상세 화면은 API 응답만 사용하며, 데이터가 없을 때는 빈 상태를 표시합니다. 주문서와 판매자 대시보드에 남아 있는 목업 데이터는 해당 API 연결 작업 전까지의 화면 보조 데이터입니다.
 
 주문·결제 API는 `src/features/orders`에서 관리합니다.
 

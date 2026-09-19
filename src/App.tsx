@@ -6,6 +6,8 @@ import { useCreateOrder, useOrder, usePreparePayment } from './features/orders/h
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useRequestRefund } from './features/refunds/hooks'
+import type { ApiTimeDeal } from './features/timedeals/api'
+import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 
 type Product = {
   id: string
@@ -133,6 +135,26 @@ function productFromApi(product: ApiProduct | ApiProductDetail): Product {
   }
 }
 
+function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
+  return {
+    id: timeDeal.timeDealId,
+    name: timeDeal.name,
+    category: '타임딜',
+    price: timeDeal.dealPrice,
+    originalPrice: timeDeal.originalPrice,
+    unit: '상품 단위',
+    stock: timeDeal.stock.availableQuantity,
+    seller: timeDeal.origin,
+    emoji: timeDeal.productGrade === 'UGLY' ? '🥕' : '🍓',
+    accent:
+      timeDeal.productGrade === 'UGLY'
+        ? 'from-orange-200 to-amber-100'
+        : 'from-rose-200 to-red-100',
+    timeDeal: true,
+    endsAt: new Date(timeDeal.endAt).toLocaleString('ko-KR'),
+  }
+}
+
 function StatusBadge({
   children,
   tone = 'slate',
@@ -174,7 +196,10 @@ function ProductVisual({ product, large = false }: { product: Product; large?: b
 
 function ProductCard({ product }: { product: Product }) {
   return (
-    <Link to={`/products/${product.id}`} className="group block">
+    <Link
+      to={`${product.timeDeal ? '/time-deals' : '/products'}/${product.id}`}
+      className="group block"
+    >
       <ProductVisual product={product} />
       <div className="pt-4">
         <div className="flex items-center justify-between gap-2">
@@ -258,7 +283,8 @@ function PublicLayout({ children }: { children: ReactNode }) {
 }
 
 function HomePage() {
-  const deals = products.filter((product) => product.timeDeal)
+  const timeDealQuery = useTimeDeals({ status: 'ACTIVE', size: 10 })
+  const deals = timeDealQuery.data?.content.map(timeDealFromApi) ?? []
   return (
     <PublicLayout>
       <main>
@@ -321,9 +347,13 @@ function HomePage() {
             </Link>
           </div>
           <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {deals.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {deals.length > 0 ? (
+              deals.map((product) => <ProductCard key={product.id} product={product} />)
+            ) : (
+              <p className="col-span-full rounded-2xl bg-slate-50 px-5 py-12 text-center text-sm text-slate-500">
+                현재 진행 중인 타임딜이 없습니다.
+              </p>
+            )}
           </div>
         </section>
         <section className="mx-auto mt-20 max-w-7xl px-5 sm:px-8">
@@ -352,17 +382,21 @@ function HomePage() {
 function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
   const [category, setCategory] = useState('전체')
   const categories = ['전체', '채소', '과일', '곡물']
-  const productQuery = useProducts({
-    category: category === '전체' ? undefined : categoryMap[category],
-    size: 10,
-  })
-  const fallbackSource = timeDeals ? products.filter((product) => product.timeDeal) : products
-  const source =
-    !timeDeals && productQuery.isSuccess
-      ? productQuery.data.content.map(productFromApi)
-      : fallbackSource
+  const productQuery = useProducts(
+    {
+      category: category === '전체' ? undefined : categoryMap[category],
+      size: 10,
+    },
+    !timeDeals,
+  )
+  const timeDealQuery = useTimeDeals({ status: 'ACTIVE', size: 10 }, timeDeals)
+  const source = timeDeals
+    ? (timeDealQuery.data?.content.map(timeDealFromApi) ?? [])
+    : (productQuery.data?.content.map(productFromApi) ?? [])
   const filtered =
-    category === '전체' ? source : source.filter((product) => product.category === category)
+    !timeDeals && category !== '전체'
+      ? source.filter((product) => product.category === category)
+      : source
   return (
     <PublicLayout>
       <main className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
@@ -381,48 +415,79 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
                 ? '마감 전에 파릇한 혜택을 챙겨보세요.'
                 : '오늘 도착한 신선한 상품을 골라보세요.'}
             </p>
-            {!timeDeals && productQuery.isError && (
+            {((!timeDeals && productQuery.isError) || (timeDeals && timeDealQuery.isError)) && (
               <p className="mt-3 text-xs text-orange-600">
-                백엔드 연결 전 임시 상품을 표시하고 있습니다.
+                목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setCategory(item)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${category === item ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-emerald-300'}`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
+          {!timeDeals && (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setCategory(item)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${category === item ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-emerald-300'}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="mt-10 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-          {filtered.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {filtered.length > 0 ? (
+            filtered.map((product) => <ProductCard key={product.id} product={product} />)
+          ) : (
+            <p className="col-span-full rounded-2xl bg-slate-50 px-5 py-16 text-center text-sm text-slate-500">
+              {timeDeals ? '현재 진행 중인 타임딜이 없습니다.' : '등록된 상품이 없습니다.'}
+            </p>
+          )}
         </div>
       </main>
     </PublicLayout>
   )
 }
 
-function ProductDetailPage() {
+function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
   const { productId } = useParams()
   const navigate = useNavigate()
-  const productQuery = useProduct(productId)
-  const product = productQuery.data
-    ? productFromApi(productQuery.data)
-    : (products.find((item) => item.id === productId) ?? products[0])
+  const productQuery = useProduct(productId, !timeDeal)
+  const timeDealQuery = useTimeDeal(productId, timeDeal)
+  const product = timeDeal
+    ? timeDealQuery.data
+      ? timeDealFromApi(timeDealQuery.data)
+      : null
+    : productQuery.data
+      ? productFromApi(productQuery.data)
+      : null
   const [quantity, setQuantity] = useState(1)
+  const isLoading = productQuery.isLoading || timeDealQuery.isLoading
+  const isError = productQuery.isError || timeDealQuery.isError
+  if (!product && (isLoading || isError)) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-6xl px-5 py-24 text-center sm:px-8">
+          <p className="text-sm text-slate-500">
+            {isLoading ? '상품 정보를 불러오는 중입니다.' : '상품 정보를 불러오지 못했습니다.'}
+          </p>
+          <Link
+            to={timeDeal ? '/time-deals' : '/products'}
+            className="mt-5 inline-block font-bold text-emerald-700"
+          >
+            목록으로 돌아가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+  if (!product) return null
   return (
     <PublicLayout>
       <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8">
         <Link
-          to="/products"
+          to={timeDeal ? '/time-deals' : '/products'}
           className="text-sm font-semibold text-slate-500 hover:text-emerald-700"
         >
           ← 상품 목록
@@ -430,9 +495,9 @@ function ProductDetailPage() {
         <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-start">
           <ProductVisual product={product} large />
           <div>
-            {productQuery.isError && (
+            {isError && (
               <p className="mb-4 text-xs text-orange-600">
-                백엔드 연결 전 임시 상품 상세를 표시하고 있습니다.
+                백엔드에서 상품 상세를 불러오지 못했습니다.
               </p>
             )}
             <div className="flex items-center gap-2">
@@ -1132,6 +1197,7 @@ function App() {
       <Route path="/products" element={<ProductsPage />} />
       <Route path="/time-deals" element={<ProductsPage timeDeals />} />
       <Route path="/products/:productId" element={<ProductDetailPage />} />
+      <Route path="/time-deals/:productId" element={<ProductDetailPage timeDeal />} />
       <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
