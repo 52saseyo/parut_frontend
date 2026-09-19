@@ -1434,9 +1434,9 @@ function AuthPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5 py-8 sm:py-12">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5 lg:grid-cols-[1fr_0.8fr]">
+      <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5">
         <div
-          className="order-first h-36 bg-cover bg-center bg-no-repeat bg-emerald-50 lg:order-last lg:h-auto lg:min-h-[620px]"
+          className="order-first h-36 bg-cover bg-center bg-no-repeat bg-emerald-50 sm:h-48 lg:h-64"
           style={{ backgroundImage: "url('/images/parut.png')" }}
           role="img"
           aria-label="파릇 신선식품 서비스 소개"
@@ -1545,9 +1545,9 @@ function SellerLoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5 py-8 sm:py-12">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5 lg:grid-cols-[1fr_0.8fr]">
+      <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5">
         <div
-          className="order-first h-36 bg-cover bg-center bg-no-repeat bg-emerald-50 lg:order-last lg:h-auto lg:min-h-[560px]"
+          className="order-first h-36 bg-cover bg-center bg-no-repeat bg-emerald-50 sm:h-48 lg:h-64"
           style={{ backgroundImage: "url('/images/parut.png')" }}
           role="img"
           aria-label="파릇 판매자 서비스 소개"
