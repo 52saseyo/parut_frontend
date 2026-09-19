@@ -4,16 +4,17 @@ Parut 프론트엔드의 기준 문서 모음입니다. 공통 서비스 규칙�
 
 ## 문서 목록
 
-| 문서                                                 | 내용                             |
-| ---------------------------------------------------- | -------------------------------- |
-| [프로젝트 개요](./00-project-overview.md)            | 목표, 범위, 저장소 정보          |
-| [프론트엔드 아키텍처](./01-frontend-architecture.md) | 기술 스택, 폴더, 상태 관리       |
-| [API 연동 정책](./02-api-integration.md)             | Axios, 환경변수, 인증, 오류 처리 |
-| [UI 및 반응형 정책](./03-ui-responsive.md)           | Tailwind, 화면, 모바일 대응      |
-| [코드 품질 정책](./04-code-quality.md)               | TypeScript, lint, format, 테스트 |
-| [Git 및 작업 흐름](./05-git-workflow.md)             | 브랜치, 커밋, 검증 기준          |
-| [도메인 및 상태 정책](./06-domain-and-status.md)     | 백엔드 도메인, 역할, 상태값      |
-| [백엔드 연동 참고](./07-backend-reference.md)        | 서비스 경계, API 그룹, 인증 흐름 |
+| 문서                                                        | 내용                             |
+| ----------------------------------------------------------- | -------------------------------- |
+| [프로젝트 개요](./00-project-overview.md)                   | 목표, 범위, 저장소 정보          |
+| [프론트엔드 아키텍처](./01-frontend-architecture.md)        | 기술 스택, 폴더, 상태 관리       |
+| [API 연동 정책](./02-api-integration.md)                    | Axios, 환경변수, 인증, 오류 처리 |
+| [UI 및 반응형 정책](./03-ui-responsive.md)                  | Tailwind, 화면, 모바일 대응      |
+| [코드 품질 정책](./04-code-quality.md)                      | TypeScript, lint, format, 테스트 |
+| [Git 및 작업 흐름](./05-git-workflow.md)                    | 브랜치, 커밋, 검증 기준          |
+| [도메인 및 상태 정책](./06-domain-and-status.md)            | 백엔드 도메인, 역할, 상태값      |
+| [백엔드 연동 참고](./07-backend-reference.md)               | 서비스 경계, API 그룹, 인증 흐름 |
+| [전체 서비스 UI·UX 및 화면 설계](./08-ui-ux-screen-plan.md) | 역할별 화면과 백엔드 기능 매핑   |
 
 ## 문서 상태
 
