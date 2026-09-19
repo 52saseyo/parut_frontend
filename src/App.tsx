@@ -6,6 +6,7 @@ import { useMyInfo } from './features/auth/hooks'
 import {
   useCreateOrder,
   useCreateTimeDealOrder,
+  useConfirmPayment,
   useOrder,
   usePreparePayment,
 } from './features/orders/hooks'
@@ -538,9 +539,12 @@ function HomePage() {
 
 function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
   const [category, setCategory] = useState('전체')
+  const [keywordInput, setKeywordInput] = useState('')
+  const [keyword, setKeyword] = useState('')
   const categories = ['전체', '채소', '과일', '곡물']
   const productQuery = useProducts(
     {
+      keyword: keyword || undefined,
       category: category === '전체' ? undefined : categoryMap[category],
       size: 10,
     },
@@ -573,6 +577,28 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
                 ? '마감 전에 파릇한 혜택을 챙겨보세요.'
                 : '오늘 도착한 신선한 상품을 골라보세요.'}
             </p>
+            {!timeDeals && (
+              <form
+                className="mt-5 flex max-w-xl gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  setKeyword(keywordInput.trim())
+                }}
+              >
+                <input
+                  value={keywordInput}
+                  onChange={(event) => setKeywordInput(event.target.value)}
+                  placeholder="상품명을 검색해 보세요"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="submit"
+                  className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
+                >
+                  검색
+                </button>
+              </form>
+            )}
             {((!timeDeals && productQuery.isError) || (timeDeals && timeDealQuery.isError)) && (
               <p className="mt-3 text-xs text-orange-600">
                 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
@@ -957,6 +983,7 @@ function CheckoutPage() {
   const orderMutation = useCreateOrder()
   const timeDealOrderMutation = useCreateTimeDealOrder()
   const paymentMutation = usePreparePayment()
+  const confirmPaymentMutation = useConfirmPayment()
   const locationState = location.state as CheckoutState | null
   const state = locationState ?? readCheckoutDraft()
   const isTimeDeal = Boolean(state?.timeDeal)
@@ -993,6 +1020,7 @@ function CheckoutPage() {
   const [submitted, setSubmitted] = useState(false)
   const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [paymentProcessing, setPaymentProcessing] = useState(false)
   const effectiveRecipient = {
     ...recipient,
     recipientName: recipient.recipientName || userQuery.data?.name || '',
@@ -1025,7 +1053,21 @@ function CheckoutPage() {
           items: [{ productId: product.productId ?? product.id, quantity }],
           recipient: effectiveRecipient,
         })
-    await paymentMutation.mutateAsync({ orderId: created.orderId, paymentMethod: 'TOSS_PAY' })
+    const paymentReady = await paymentMutation.mutateAsync({
+      orderId: created.orderId,
+      paymentMethod: 'TOSS_PAY',
+    })
+    setPaymentProcessing(true)
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 5_000))
+      await confirmPaymentMutation.mutateAsync({
+        paymentKey: `MOCK-PAYMENT-${Date.now()}`,
+        tossOrderId: paymentReady.tossOrderId,
+        amount: paymentReady.amount,
+      })
+    } finally {
+      setPaymentProcessing(false)
+    }
     sessionStorage.removeItem(checkoutDraftKey)
     setApiOrderNo(created.orderNo)
     setSubmitted(true)
@@ -1076,7 +1118,11 @@ function CheckoutPage() {
   const deliveryFee = 3_000
   const totalAmount = productAmount + deliveryFee
   const orderPending =
-    orderMutation.isPending || timeDealOrderMutation.isPending || paymentMutation.isPending
+    orderMutation.isPending ||
+    timeDealOrderMutation.isPending ||
+    paymentMutation.isPending ||
+    confirmPaymentMutation.isPending ||
+    paymentProcessing
 
   if (submitted)
     return (
@@ -1096,6 +1142,20 @@ function CheckoutPage() {
           >
             주문 내역 보기
           </Link>
+        </main>
+      </PublicLayout>
+    )
+  if (paymentProcessing)
+    return (
+      <PublicLayout>
+        <main className="mx-auto flex max-w-xl flex-col items-center px-5 py-28 text-center">
+          <div className="h-14 w-14 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
+          <h1 className="mt-7 text-2xl font-black">결제를 승인하고 있어요</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            테스트 결제 승인 처리 중입니다.
+            <br />
+            잠시만 기다려 주세요.
+          </p>
         </main>
       </PublicLayout>
     )
@@ -1195,7 +1255,8 @@ function CheckoutPage() {
             </div>
             {(orderMutation.isError ||
               timeDealOrderMutation.isError ||
-              paymentMutation.isError) && (
+              paymentMutation.isError ||
+              confirmPaymentMutation.isError) && (
               <p className="mt-4 text-xs text-red-300">
                 주문 또는 결제 준비에 실패했습니다. 로그인 상태와 백엔드 응답을 확인해주세요.
               </p>

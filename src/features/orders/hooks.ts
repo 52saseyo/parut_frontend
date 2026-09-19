@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   confirmOrderItem,
+  confirmPayment,
   createOrder,
   createTimeDealOrder,
   getOrder,
@@ -42,6 +43,10 @@ export function usePreparePayment() {
       paymentMethod?: 'CREDIT_CARD' | 'TOSS_PAY'
     }) => preparePayment(orderId, paymentMethod),
   })
+}
+
+export function useConfirmPayment() {
+  return useMutation({ mutationFn: confirmPayment })
 }
 
 export function useConfirmOrderItem() {
