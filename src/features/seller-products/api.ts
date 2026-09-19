@@ -201,9 +201,9 @@ export async function createTimeDeal(input: TimeDealCreateInput) {
   return response.data.data
 }
 
-export async function createTimeDealWithImage(input: TimeDealCreateInput, file: File) {
+export async function createTimeDealWithImage(input: TimeDealCreateInput, file?: File) {
   const timeDeal = await createTimeDeal(input)
-  await uploadTimeDealImage(timeDeal.timeDealId, file)
+  if (file) await uploadTimeDealImage(timeDeal.timeDealId, file)
   return timeDeal
 }
 

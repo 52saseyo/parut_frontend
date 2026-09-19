@@ -2188,7 +2188,7 @@ function SellerTimeDealManagement() {
         </div>
       </div>
       {successMessage && <div role="status" className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">{successMessage}</div>}
-      {showCreate && <form className="grid gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); if (!imageFile) return; mutations.createTimeDealWithImage.mutate({ input: { name: form.name, description: form.description, productGrade: form.productGrade, origin: form.origin, harvestedDate: form.harvestedDate, originalPrice: Number(form.originalPrice), discountRate: Number(form.discountRate), startAt: new Date(form.startAt).toISOString(), endAt: new Date(form.endAt).toISOString(), maxPurchaseQuantity: Number(form.maxPurchaseQuantity), initialQuantity: Number(form.initialQuantity), lowStockThreshold: Number(form.lowStockThreshold) }, file: imageFile }, { onSuccess: (result) => { setSuccessMessage(`타임딜 생성과 이미지 등록이 완료되었습니다. 생성된 타임딜 ID: ${result.timeDealId}`); setImageFile(null); setForm((current) => ({ ...current, name: '', description: '', originalPrice: '', initialQuantity: '' })); setShowCreate(false) } }) }}>
+      {showCreate && <form className="grid gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); mutations.createTimeDealWithImage.mutate({ input: { name: form.name, description: form.description, productGrade: form.productGrade, origin: form.origin, harvestedDate: form.harvestedDate, originalPrice: Number(form.originalPrice), discountRate: Number(form.discountRate), startAt: new Date(form.startAt).toISOString(), endAt: new Date(form.endAt).toISOString(), maxPurchaseQuantity: Number(form.maxPurchaseQuantity), initialQuantity: Number(form.initialQuantity), lowStockThreshold: Number(form.lowStockThreshold) }, file: imageFile ?? undefined }, { onSuccess: (result) => { setSuccessMessage(`타임딜 생성이 완료되었습니다.${imageFile ? ' 이미지도 등록되었습니다.' : ' 이미지는 나중에 등록할 수 있습니다.'} 생성된 타임딜 ID: ${result.timeDealId}`); setImageFile(null); setForm((current) => ({ ...current, name: '', description: '', originalPrice: '', initialQuantity: '' })); setShowCreate(false) } }) }}>
         <div className="sm:col-span-2"><h3 className="font-bold text-slate-950">타임딜 등록</h3><p className="mt-1 text-xs text-slate-500">일반 상품과 연결하지 않는 독립 타임딜을 등록합니다.</p></div>
         <SellerFormField label="타임딜 상품명" hint="고객에게 표시되는 타임딜 이름"><input required value={form.name} onChange={(event) => update('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 오늘만 못난이 감자" /></SellerFormField>
         <SellerFormField label="원산지" hint="상품이 생산된 지역 또는 국가"><input required value={form.origin} onChange={(event) => update('origin', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 강원 평창" /></SellerFormField>
@@ -2202,8 +2202,8 @@ function SellerTimeDealManagement() {
         <SellerFormField label="재고 부족 기준" hint="남은 수량이 이 값 이하이면 마감 임박 표시"><input required type="number" min="0" value={form.lowStockThreshold} onChange={(event) => update('lowStockThreshold', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 5" /></SellerFormField>
         <SellerFormField label="판매 시작 일시" hint="타임딜이 고객에게 공개되는 시점"><input required type="datetime-local" value={form.startAt} onChange={(event) => update('startAt', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
         <SellerFormField label="판매 종료 일시" hint="타임딜이 자동으로 종료되는 시점"><input required type="datetime-local" value={form.endAt} onChange={(event) => update('endAt', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
-        <SellerFormField label="대표 이미지" hint="타임딜 생성 후 이미지 서버에 업로드하고 타임딜에 연결합니다. JPEG·PNG·WEBP, 10MB 이하">
-          <input required type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+        <SellerFormField label="대표 이미지" hint="선택 사항입니다. 지금 등록하거나 타임딜 생성 후 나중에 등록할 수 있습니다. JPEG·PNG·WEBP, 10MB 이하">
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
         </SellerFormField>
         {mutations.createTimeDealWithImage.isError && <p className="sm:col-span-2 text-xs text-red-600">타임딜 또는 이미지 등록에 실패했습니다. 입력값, 이미지 형식과 판매자 권한을 확인해주세요.</p>}
         <button disabled={mutations.createTimeDealWithImage.isPending} className="sm:col-span-2 rounded-lg bg-orange-500 py-2.5 text-sm font-bold text-white disabled:opacity-50">{mutations.createTimeDealWithImage.isPending ? '타임딜과 이미지 등록 중...' : '타임딜 생성하기'}</button>
@@ -2269,9 +2269,24 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
               {seller ? 'SELLER' : 'ADMIN'}
             </StatusBadge>
             {seller ? (
-              <Link to="/" className="text-sm font-semibold text-slate-500">
-                서비스 보기
-              </Link>
+              <>
+                <Link to="/admin/login" className="text-sm font-semibold text-slate-500 hover:text-slate-900">
+                  관리자 센터
+                </Link>
+                <Link to="/" className="text-sm font-semibold text-slate-500 hover:text-slate-900">
+                  서비스 보기
+                </Link>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-slate-500 hover:text-slate-900"
+                  onClick={async () => {
+                    await logout()
+                    navigate('/seller/login')
+                  }}
+                >
+                  로그아웃
+                </button>
+              </>
             ) : (
               <button
                 type="button"
