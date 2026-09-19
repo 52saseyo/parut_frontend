@@ -227,10 +227,12 @@ function ProductVisual({
   product,
   large = false,
   compact = false,
+  showTimeDealBadge = true,
 }: {
   product: Product
   large?: boolean
   compact?: boolean
+  showTimeDealBadge?: boolean
 }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
   const hasImage = Boolean(product.imageUrl) && failedImageUrl !== product.imageUrl
@@ -255,7 +257,7 @@ function ProductVisual({
           <span className="mt-2 text-xs font-medium">이미지 준비 중</span>
         </div>
       )}
-      {product.timeDeal && (
+      {product.timeDeal && showTimeDealBadge && !compact && (
         <span className="absolute left-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white">
           TIME DEAL
         </span>
@@ -1085,7 +1087,7 @@ function CheckoutPage() {
               <h2 className="font-bold">주문 상품</h2>
               <div className="mt-5 flex items-center gap-4">
                 <div className="w-24 shrink-0">
-                  <ProductVisual product={product} compact />
+                  <ProductVisual product={product} compact showTimeDealBadge={false} />
                 </div>
                 <div>
                   <p className="font-bold">{product.name}</p>
