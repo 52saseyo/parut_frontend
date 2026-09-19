@@ -7,14 +7,18 @@ export const productKeys = {
   detail: (productId: string) => ['products', 'detail', productId] as const,
 }
 
-export function useProducts(params: ProductSearchParams = {}) {
-  return useQuery({ queryKey: productKeys.list(params), queryFn: () => getProducts(params) })
+export function useProducts(params: ProductSearchParams = {}, enabled = true) {
+  return useQuery({
+    queryKey: productKeys.list(params),
+    queryFn: () => getProducts(params),
+    enabled,
+  })
 }
 
-export function useProduct(productId: string | undefined) {
+export function useProduct(productId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: productKeys.detail(productId ?? ''),
     queryFn: () => getProduct(productId ?? ''),
-    enabled: Boolean(productId),
+    enabled: Boolean(productId) && enabled,
   })
 }
