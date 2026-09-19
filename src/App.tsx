@@ -1485,19 +1485,33 @@ function AuthPage() {
                   : '로그인'}
           </button>
         </form>
-        <div className="mt-6 flex justify-between text-xs text-slate-500">
-          <Link
-            to={isSignup || isAdminLogin ? '/login' : '/signup'}
-            className="hover:text-emerald-700"
-          >
-            {isSignup || isAdminLogin ? '로그인으로 돌아가기' : '회원가입'}
-          </Link>
-          <Link
-            to={isAdminLogin ? '/login' : isSignup ? '/seller/login' : '/admin/login'}
-            className="hover:text-emerald-700"
-          >
-            {isAdminLogin ? '일반 로그인' : isSignup ? '판매자 로그인' : '관리자 로그인'}
-          </Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-500">
+          {isSignup ? (
+            <Link to="/login" className="hover:text-emerald-700">
+              로그인으로 돌아가기
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className={isAdminLogin ? 'hover:text-emerald-700' : 'font-bold text-emerald-700'}
+              >
+                일반 로그인
+              </Link>
+              <Link
+                to="/seller/login"
+                className="hover:text-emerald-700"
+              >
+                판매자 로그인
+              </Link>
+              <Link
+                to="/admin/login"
+                className={isAdminLogin ? 'font-bold text-emerald-700' : 'hover:text-emerald-700'}
+              >
+                관리자 로그인
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1553,11 +1567,17 @@ function SellerLoginPage() {
             {mutation.isPending ? '로그인 중...' : '판매자 로그인'}
           </button>
         </form>
-        <div className="mt-6 flex justify-between text-xs text-slate-500">
+        <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-500">
           <Link to="/login" className="hover:text-emerald-700">
             일반 로그인
           </Link>
-          <Link to="/seller/apply" className="font-semibold text-emerald-700">
+          <Link to="/seller/login" className="font-bold text-emerald-700">
+            판매자 로그인
+          </Link>
+          <Link to="/admin/login" className="hover:text-emerald-700">
+            관리자 로그인
+          </Link>
+          <Link to="/seller/apply" className="font-semibold text-orange-600">
             판매자 신청하기
           </Link>
         </div>
