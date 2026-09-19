@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { login, signup } from './features/auth/api'
+import type { ApiProduct, ApiProductDetail } from './features/products/api'
+import { useProduct, useProducts } from './features/products/hooks'
 
 type Product = {
   id: string
@@ -92,6 +96,40 @@ const products: Product[] = [
 ]
 
 const money = (value: number) => `${value.toLocaleString('ko-KR')}원`
+
+const categoryMap: Record<string, ApiProduct['category']> = {
+  채소: 'VEGETABLE',
+  과일: 'FRUIT',
+  곡물: 'GRAIN',
+}
+
+function productFromApi(product: ApiProduct | ApiProductDetail): Product {
+  const category =
+    product.category === 'FRUIT'
+      ? '과일'
+      : product.category === 'GRAIN'
+        ? '곡물'
+        : product.category === 'VEGETABLE'
+          ? '채소'
+          : '기타'
+  return {
+    id: product.productId,
+    name: product.name,
+    category,
+    price: product.price,
+    unit: '상품 단위',
+    stock: 'availableQuantity' in product ? product.availableQuantity : 0,
+    seller: product.origin,
+    emoji: category === '과일' ? '🍓' : category === '곡물' ? '🌾' : '🥬',
+    accent:
+      category === '과일'
+        ? 'from-rose-200 to-red-100'
+        : category === '곡물'
+          ? 'from-yellow-100 to-stone-100'
+          : 'from-emerald-200 to-lime-100',
+    timeDeal: false,
+  }
+}
 
 function StatusBadge({
   children,
@@ -312,7 +350,15 @@ function HomePage() {
 function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
   const [category, setCategory] = useState('전체')
   const categories = ['전체', '채소', '과일', '곡물']
-  const source = timeDeals ? products.filter((product) => product.timeDeal) : products
+  const productQuery = useProducts({
+    category: category === '전체' ? undefined : categoryMap[category],
+    size: 10,
+  })
+  const fallbackSource = timeDeals ? products.filter((product) => product.timeDeal) : products
+  const source =
+    !timeDeals && productQuery.isSuccess
+      ? productQuery.data.content.map(productFromApi)
+      : fallbackSource
   const filtered =
     category === '전체' ? source : source.filter((product) => product.category === category)
   return (
@@ -333,6 +379,11 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
                 ? '마감 전에 파릇한 혜택을 챙겨보세요.'
                 : '오늘 도착한 신선한 상품을 골라보세요.'}
             </p>
+            {!timeDeals && productQuery.isError && (
+              <p className="mt-3 text-xs text-orange-600">
+                백엔드 연결 전 임시 상품을 표시하고 있습니다.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {categories.map((item) => (
@@ -360,7 +411,10 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
 function ProductDetailPage() {
   const { productId } = useParams()
   const navigate = useNavigate()
-  const product = products.find((item) => item.id === productId) ?? products[0]
+  const productQuery = useProduct(productId)
+  const product = productQuery.data
+    ? productFromApi(productQuery.data)
+    : (products.find((item) => item.id === productId) ?? products[0])
   const [quantity, setQuantity] = useState(1)
   return (
     <PublicLayout>
@@ -374,6 +428,11 @@ function ProductDetailPage() {
         <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-start">
           <ProductVisual product={product} large />
           <div>
+            {productQuery.isError && (
+              <p className="mb-4 text-xs text-orange-600">
+                백엔드 연결 전 임시 상품 상세를 표시하고 있습니다.
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <StatusBadge tone={product.stock > 0 ? 'green' : 'red'}>
                 {product.stock > 0 ? '판매 중' : '품절'}
@@ -661,32 +720,74 @@ function CheckoutPage() {
 }
 
 function AuthPage() {
+  const location = useLocation()
+  const isSignup = location.pathname === '/signup'
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ username: '', password: '', name: '' })
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (isSignup) {
+        await signup({ username: form.username, password: form.password, name: form.name })
+        return null
+      }
+      return login({ username: form.username, password: form.password })
+    },
+    onSuccess: () => navigate(isSignup ? '/login' : '/'),
+  })
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5">
       <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
         <Link to="/" className="text-xl font-black text-emerald-700">
           parut<span className="text-orange-500">.</span>
         </Link>
-        <h1 className="mt-10 text-3xl font-black">다시 만나요</h1>
-        <p className="mt-2 text-sm text-slate-500">파릇한 장보기를 시작해보세요.</p>
-        <form className="mt-8 space-y-3" onSubmit={(event) => event.preventDefault()}>
+        <h1 className="mt-10 text-3xl font-black">{isSignup ? '파릇한 시작' : '다시 만나요'}</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          {isSignup ? '파릇 서비스에 가입해보세요.' : '파릇한 장보기를 시작해보세요.'}
+        </p>
+        <form
+          className="mt-8 space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            mutation.mutate()
+          }}
+        >
+          {isSignup && (
+            <input
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-emerald-500"
+              placeholder="이름"
+            />
+          )}
           <input
+            value={form.username}
+            onChange={(event) => setForm({ ...form, username: event.target.value })}
             className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-emerald-500"
-            placeholder="이메일"
-            type="email"
+            placeholder="아이디"
           />
           <input
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
             className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-emerald-500"
             placeholder="비밀번호"
             type="password"
           />
-          <button className="w-full rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white hover:bg-emerald-800">
-            로그인
+          {mutation.isError && (
+            <p className="text-xs text-red-600">
+              요청에 실패했습니다. 백엔드 연결과 입력값을 확인해주세요.
+            </p>
+          )}
+          <button
+            disabled={mutation.isPending}
+            className="w-full rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mutation.isPending ? '처리 중...' : isSignup ? '회원가입' : '로그인'}
           </button>
         </form>
         <div className="mt-6 flex justify-between text-xs text-slate-500">
-          <Link to="/signup" className="hover:text-emerald-700">
-            회원가입
+          <Link to={isSignup ? '/login' : '/signup'} className="hover:text-emerald-700">
+            {isSignup ? '로그인으로 돌아가기' : '회원가입'}
           </Link>
           <Link to="/seller" className="hover:text-emerald-700">
             판매자 센터 미리보기
