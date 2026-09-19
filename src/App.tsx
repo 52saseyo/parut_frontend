@@ -1436,7 +1436,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5 py-8 sm:py-12">
       <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5 lg:grid-cols-[1fr_0.8fr]">
         <div
-          className="order-first h-36 bg-cover bg-center lg:order-last lg:h-auto lg:min-h-[620px]"
+          className="order-first h-36 bg-contain bg-center bg-no-repeat bg-emerald-50 lg:order-last lg:h-auto lg:min-h-[620px]"
           style={{ backgroundImage: "url('/images/parut.png')" }}
           role="img"
           aria-label="파릇 신선식품 서비스 소개"
@@ -1544,8 +1544,15 @@ function SellerLoginPage() {
   })
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5">
-      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+    <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5 py-8 sm:py-12">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5 lg:grid-cols-[1fr_0.8fr]">
+        <div
+          className="order-first h-36 bg-contain bg-center bg-no-repeat bg-emerald-50 lg:order-last lg:h-auto lg:min-h-[560px]"
+          style={{ backgroundImage: "url('/images/parut.png')" }}
+          role="img"
+          aria-label="파릇 판매자 서비스 소개"
+        />
+        <div className="p-7 sm:p-10">
         <Link to="/" className="text-xl font-black text-emerald-700">
           parut<span className="text-orange-500">.</span>
         </Link>
@@ -1597,6 +1604,7 @@ function SellerLoginPage() {
           <Link to="/seller/apply" className="font-semibold text-orange-600">
             판매자 신청하기
           </Link>
+        </div>
         </div>
       </div>
     </div>
