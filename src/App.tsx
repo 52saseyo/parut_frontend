@@ -21,6 +21,7 @@ type Product = {
   seller: string
   emoji: string
   accent: string
+  imageUrl?: string | null
   timeDeal?: boolean
   endsAt?: string
   endAt?: string
@@ -121,6 +122,7 @@ function productFromApi(product: ApiProduct | ApiProductDetail): Product {
   return {
     id: product.productId,
     name: product.name,
+    imageUrl: 'imageUrl' in product ? product.imageUrl : null,
     category,
     price: product.price,
     unit: '상품 단위',
@@ -141,6 +143,7 @@ function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
   return {
     id: timeDeal.timeDealId,
     name: timeDeal.name,
+    imageUrl: timeDeal.imageUrl,
     category: '타임딜',
     price: timeDeal.dealPrice,
     originalPrice: timeDeal.originalPrice,
@@ -209,12 +212,27 @@ function StatusBadge({
 }
 
 function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const hasImage = Boolean(product.imageUrl) && failedImageUrl !== product.imageUrl
   return (
     <div
       className={`relative flex ${large ? 'h-80' : 'h-48'} items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.accent}`}
     >
-      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/30" />
-      <span className={`${large ? 'text-8xl' : 'text-6xl'} drop-shadow-sm`}>{product.emoji}</span>
+      {hasImage ? (
+        <img
+          src={product.imageUrl ?? undefined}
+          alt={product.name}
+          className="h-full w-full object-cover"
+          onError={() => setFailedImageUrl(product.imageUrl ?? null)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-slate-500">
+          <span className={`${large ? 'text-5xl' : 'text-3xl'} font-black tracking-[0.18em]`}>
+            NO IMAGE
+          </span>
+          <span className="mt-2 text-xs font-medium">이미지 준비 중</span>
+        </div>
+      )}
       {product.timeDeal && (
         <span className="absolute left-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white">
           TIME DEAL
@@ -548,6 +566,7 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
       : null
   const [quantity, setQuantity] = useState(1)
   const countdown = useRemainingTime(product?.endAt)
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
   const isLoading = productQuery.isLoading || timeDealQuery.isLoading
   const isError = productQuery.isError || timeDealQuery.isError
   if (!product && isLoading) {
@@ -652,11 +671,24 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
             </div>
             <button
               type="button"
-              onClick={() => navigate('/checkout', { state: { productId: product.id, quantity } })}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  navigate('/login')
+                  return
+                }
+                navigate('/checkout', { state: { productId: product.id, quantity } })
+              }}
               className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 text-sm font-bold text-white hover:bg-emerald-800"
             >
-              {money(product.price * quantity)} 주문하기
+              {isAuthenticated
+                ? `${money(product.price * quantity)} 주문하기`
+                : '로그인 후 주문하기'}
             </button>
+            {!isAuthenticated && (
+              <p className="mt-3 text-center text-xs text-slate-500">
+                주문하려면 로그인이 필요합니다.
+              </p>
+            )}
           </div>
         </div>
       </main>
