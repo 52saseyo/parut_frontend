@@ -32,6 +32,12 @@ VITE_API_BASE_URL=http://localhost:8080
 - `POST /api/v1/payments/ready`: 결제 준비
 - `POST /api/v1/payments/confirm`: 결제 확정. `Idempotency-Key` 헤더가 필요합니다.
 
+checkout 주문 식별자는 주문 유형에 따라 분리합니다.
+
+- 일반 상품: `POST /api/v1/orders`에 `items[].productId`를 전달합니다.
+- 타임딜: `POST /api/v1/orders/time-deals`에 `timeDealId`와 연결된 `productId`를 함께 전달합니다. 타임딜 화면의 선택 식별자는 `timeDealId`이며, 재고·상품 연결 검증을 위해 백엔드 계약상 `productId`도 필요합니다.
+- 결제 준비는 주문 생성 응답의 `orderId`를 `POST /api/v1/payments/ready`에 전달합니다.
+
 현재 백엔드 `OrderController`에는 고객 주문 목록 조회 endpoint가 없으므로 `/orders` 목록은 임시 데이터로 유지하고, 상세 화면은 UUID 주문번호가 들어오면 실제 API를 조회합니다. 목록 API가 추가되면 같은 query 계층에 연결합니다.
 
 배송·환불 API는 `src/features/delivery`와 `src/features/refunds`에서 관리합니다.
@@ -45,6 +51,8 @@ VITE_API_BASE_URL=http://localhost:8080
 - `PATCH /api/v1/refunds/{refundId}/reject`: 판매자 환불 거절
 
 알림 서비스는 현재 domain과 enum만 있고 controller 및 외부 API가 백엔드에 구현되어 있지 않습니다. 따라서 프론트엔드에서는 알림 화면 구조만 유지하고, endpoint가 추가되면 `src/features/notifications`를 새로 연결합니다.
+
+배송지 자동 입력은 현재 `/api/v1/users/me`에서 사용자 이름만 조회합니다. 백엔드 `UserResponse`에 주소 필드와 배송지 조회 endpoint가 없으므로, 프론트엔드는 최근 입력한 배송지를 로컬 저장해 다음 checkout에 복원합니다. 계정 배송지 API가 추가되면 로컬 복원 로직을 서버 배송지 조회로 교체합니다.
 
 ## 상태 처리
 

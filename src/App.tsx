@@ -1,8 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { login, signup } from './features/auth/api'
-import { useCreateOrder, useOrder, usePreparePayment } from './features/orders/hooks'
+import { login, logout, signup } from './features/auth/api'
+import { useMyInfo } from './features/auth/hooks'
+import {
+  useCreateOrder,
+  useCreateTimeDealOrder,
+  useOrder,
+  usePreparePayment,
+} from './features/orders/hooks'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useRequestRefund } from './features/refunds/hooks'
@@ -12,6 +18,7 @@ import { authStorage } from './lib/api'
 
 type Product = {
   id: string
+  productId?: string
   name: string
   category: string
   price: number
@@ -121,11 +128,15 @@ function productFromApi(product: ApiProduct | ApiProductDetail): Product {
           : '기타'
   return {
     id: product.productId,
+    productId: product.productId,
     name: product.name,
     imageUrl: 'imageUrl' in product ? product.imageUrl : null,
     category,
     price: product.price,
-    unit: '상품 단위',
+    unit:
+      'saleUnit' in product
+        ? `${product.unitQuantity}${product.saleUnit === 'KG' ? 'kg' : product.saleUnit.toLowerCase()}`
+        : '상품 단위',
     stock: 'availableQuantity' in product ? product.availableQuantity : 0,
     seller: product.origin,
     emoji: category === '과일' ? '🍓' : category === '곡물' ? '🌾' : '🥬',
@@ -142,6 +153,7 @@ function productFromApi(product: ApiProduct | ApiProductDetail): Product {
 function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
   return {
     id: timeDeal.timeDealId,
+    productId: timeDeal.productId,
     name: timeDeal.name,
     imageUrl: timeDeal.imageUrl,
     category: '타임딜',
@@ -211,12 +223,20 @@ function StatusBadge({
   )
 }
 
-function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
+function ProductVisual({
+  product,
+  large = false,
+  compact = false,
+}: {
+  product: Product
+  large?: boolean
+  compact?: boolean
+}) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
   const hasImage = Boolean(product.imageUrl) && failedImageUrl !== product.imageUrl
   return (
     <div
-      className={`relative flex ${large ? 'h-80' : 'h-48'} items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.accent}`}
+      className={`relative flex ${large ? 'h-80' : compact ? 'h-24' : 'h-48'} w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.accent}`}
     >
       {hasImage ? (
         <img
@@ -227,7 +247,9 @@ function ProductVisual({ product, large = false }: { product: Product; large?: b
         />
       ) : (
         <div className="flex flex-col items-center justify-center text-slate-500">
-          <span className={`${large ? 'text-5xl' : 'text-3xl'} font-black tracking-[0.18em]`}>
+          <span
+            className={`${large ? 'text-5xl' : compact ? 'text-xs' : 'text-3xl'} font-black tracking-[0.18em]`}
+          >
             NO IMAGE
           </span>
           <span className="mt-2 text-xs font-medium">이미지 준비 중</span>
@@ -318,6 +340,9 @@ function ProductDetailSkeleton({ timeDeal = false }: { timeDeal?: boolean }) {
 }
 
 function Header() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() =>
+    Boolean(authStorage.getAccessToken()),
+  )
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-5 sm:px-8">
@@ -345,12 +370,24 @@ function Header() {
           <Link to="/seller" className="hidden text-xs font-semibold text-slate-500 sm:block">
             판매자 센터
           </Link>
-          <Link
-            to="/login"
-            className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
-          >
-            로그인
-          </Link>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => {
+                void logout().finally(() => setIsAuthenticated(false))
+              }}
+              className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+            >
+              로그아웃
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+            >
+              로그인
+            </Link>
+          )}
           <Link
             to="/checkout"
             aria-label="장바구니"
@@ -676,7 +713,14 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
                   navigate('/login')
                   return
                 }
-                navigate('/checkout', { state: { productId: product.id, quantity } })
+                navigate('/checkout', {
+                  state: {
+                    productId: product.productId ?? product.id,
+                    timeDealId: timeDeal ? product.id : undefined,
+                    timeDeal,
+                    quantity,
+                  },
+                })
               }}
               className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 text-sm font-bold text-white hover:bg-emerald-800"
             >
@@ -890,36 +934,117 @@ function OrderDetailPage() {
 function CheckoutPage() {
   const location = useLocation()
   const orderMutation = useCreateOrder()
+  const timeDealOrderMutation = useCreateTimeDealOrder()
   const paymentMutation = usePreparePayment()
-  const state = location.state as { productId?: string; quantity?: number } | null
-  const product = products.find((item) => item.id === state?.productId) ?? products[0]
+  const state = location.state as {
+    productId?: string
+    timeDealId?: string
+    timeDeal?: boolean
+    quantity?: number
+  } | null
+  const isTimeDeal = Boolean(state?.timeDeal)
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
+  const productQuery = useProduct(state?.productId, !isTimeDeal)
+  const timeDealQuery = useTimeDeal(state?.timeDealId, isTimeDeal)
+  const userQuery = useMyInfo(isAuthenticated)
+  const product = isTimeDeal
+    ? timeDealQuery.data
+      ? timeDealFromApi(timeDealQuery.data)
+      : null
+    : productQuery.data
+      ? productFromApi(productQuery.data)
+      : null
   const quantity = state?.quantity ?? 1
-  const [recipient, setRecipient] = useState({
-    recipientName: '파릇 고객',
-    recipientPhone: '010-0000-0000',
-    zipCode: '00000',
-    addressBase: '서울시 파릇구 파릇로 1',
-    addressDetail: '',
-    deliveryRequest: '',
+  const [recipient, setRecipient] = useState(() => {
+    const saved = localStorage.getItem('parut.checkout.recipient')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        localStorage.removeItem('parut.checkout.recipient')
+      }
+    }
+    return {
+      recipientName: '',
+      recipientPhone: '',
+      zipCode: '',
+      addressBase: '',
+      addressDetail: '',
+      deliveryRequest: '',
+    }
   })
   const [submitted, setSubmitted] = useState(false)
   const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
+  const effectiveRecipient = {
+    ...recipient,
+    recipientName: recipient.recipientName || userQuery.data?.name || '',
+  }
 
   async function submitOrder() {
-    const isUuid = Boolean(state?.productId && /^[0-9a-f-]{36}$/i.test(state.productId))
-    if (!isUuid) {
-      setSubmitted(true)
-      return
-    }
-
-    const created = await orderMutation.mutateAsync({
-      items: [{ productId: state?.productId as string, quantity }],
-      recipient,
-    })
+    if (!product) return
+    localStorage.setItem('parut.checkout.recipient', JSON.stringify(effectiveRecipient))
+    const created = isTimeDeal
+      ? await timeDealOrderMutation.mutateAsync({
+          timeDealId: product.id,
+          productId: product.productId ?? '',
+          quantity,
+          recipient: effectiveRecipient,
+        })
+      : await orderMutation.mutateAsync({
+          items: [{ productId: product.productId ?? product.id, quantity }],
+          recipient: effectiveRecipient,
+        })
     await paymentMutation.mutateAsync({ orderId: created.orderId, paymentMethod: 'TOSS_PAY' })
     setApiOrderNo(created.orderNo)
     setSubmitted(true)
   }
+
+  if (!isAuthenticated) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-28 text-center">
+          <h1 className="text-2xl font-black text-slate-950">로그인이 필요합니다</h1>
+          <p className="mt-3 text-sm text-slate-500">주문을 진행하려면 먼저 로그인해 주세요.</p>
+          <Link
+            to="/login"
+            className="mt-7 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white"
+          >
+            로그인하러 가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  const isProductLoading = productQuery.isLoading || timeDealQuery.isLoading
+  if (isProductLoading) {
+    return (
+      <PublicLayout>
+        <ProductDetailSkeleton timeDeal={isTimeDeal} />
+      </PublicLayout>
+    )
+  }
+  if (!product) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-28 text-center">
+          <h1 className="text-2xl font-black text-slate-950">주문 상품을 찾을 수 없습니다</h1>
+          <Link
+            to={isTimeDeal ? '/time-deals' : '/products'}
+            className="mt-7 inline-flex font-bold text-emerald-700"
+          >
+            목록으로 돌아가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  const productAmount = product.price * quantity
+  const deliveryFee = 3_000
+  const totalAmount = productAmount + deliveryFee
+  const orderPending =
+    orderMutation.isPending || timeDealOrderMutation.isPending || paymentMutation.isPending
 
   if (submitted)
     return (
@@ -952,14 +1077,16 @@ function CheckoutPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-bold">주문 상품</h2>
               <div className="mt-5 flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-rose-100 text-4xl">
-                  🍓
+                <div className="w-24 shrink-0">
+                  <ProductVisual product={product} compact />
                 </div>
                 <div>
-                  <p className="font-bold">논산 설향 딸기</p>
-                  <p className="mt-1 text-sm text-slate-500">500g · 1개</p>
+                  <p className="font-bold">{product.name}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {product.unit} · {quantity}개
+                  </p>
                 </div>
-                <strong className="ml-auto">12,900원</strong>
+                <strong className="ml-auto">{money(productAmount)}</strong>
               </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -968,7 +1095,7 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="받는 분"
-                  value={recipient.recipientName}
+                  value={effectiveRecipient.recipientName}
                   onChange={(event) =>
                     setRecipient({ ...recipient, recipientName: event.target.value })
                   }
@@ -982,13 +1109,39 @@ function CheckoutPage() {
                   }
                 />
                 <input
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  placeholder="우편번호"
+                  value={recipient.zipCode}
+                  onChange={(event) => setRecipient({ ...recipient, zipCode: event.target.value })}
+                />
+                <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  placeholder="배송 주소"
+                  placeholder="기본 주소"
                   value={recipient.addressBase}
                   onChange={(event) =>
                     setRecipient({ ...recipient, addressBase: event.target.value })
                   }
                 />
+                <input
+                  className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  placeholder="상세 주소"
+                  value={recipient.addressDetail}
+                  onChange={(event) =>
+                    setRecipient({ ...recipient, addressDetail: event.target.value })
+                  }
+                />
+                <input
+                  className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  placeholder="배송 요청사항 (선택)"
+                  value={recipient.deliveryRequest}
+                  onChange={(event) =>
+                    setRecipient({ ...recipient, deliveryRequest: event.target.value })
+                  }
+                />
+                <p className="sm:col-span-2 text-xs text-slate-500">
+                  최근 입력한 배송지가 있으면 자동으로 불러옵니다. 계정 배송지 API가 추가되면 서버
+                  주소로 교체됩니다.
+                </p>
               </div>
             </div>
           </section>
@@ -997,7 +1150,7 @@ function CheckoutPage() {
             <div className="mt-5 space-y-3 text-sm text-slate-300">
               <div className="flex justify-between">
                 <span>상품 금액</span>
-                <span>{money(product.price * quantity)}</span>
+                <span>{money(productAmount)}</span>
               </div>
               <div className="flex justify-between">
                 <span>배송비</span>
@@ -1005,23 +1158,23 @@ function CheckoutPage() {
               </div>
               <div className="flex justify-between border-t border-white/10 pt-3 text-base font-bold text-white">
                 <span>총 결제 금액</span>
-                <span>{money(product.price * quantity + 3000)}</span>
+                <span>{money(totalAmount)}</span>
               </div>
             </div>
-            {(orderMutation.isError || paymentMutation.isError) && (
+            {(orderMutation.isError ||
+              timeDealOrderMutation.isError ||
+              paymentMutation.isError) && (
               <p className="mt-4 text-xs text-red-300">
                 주문 또는 결제 준비에 실패했습니다. 로그인 상태와 백엔드 응답을 확인해주세요.
               </p>
             )}
             <button
               type="button"
-              disabled={orderMutation.isPending || paymentMutation.isPending}
+              disabled={orderPending}
               onClick={() => void submitOrder()}
               className="mt-7 w-full rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {orderMutation.isPending || paymentMutation.isPending
-                ? '주문 처리 중...'
-                : `${money(product.price * quantity + 3000)} 결제 준비`}
+              {orderPending ? '주문 처리 중...' : `${money(totalAmount)} 결제 준비`}
             </button>
           </aside>
         </div>
