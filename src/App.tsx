@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { login, logout, signup } from './features/auth/api'
+import { adminLogin, login, logout, signup } from './features/auth/api'
 import { useMyInfo } from './features/auth/hooks'
 import {
   useCreateOrder,
@@ -1399,6 +1399,7 @@ function CartPage() {
 function AuthPage() {
   const location = useLocation()
   const isSignup = location.pathname === '/signup'
+  const isAdminLogin = location.pathname === '/admin/login'
   const navigate = useNavigate()
   const [form, setForm] = useState({ username: '', password: '', name: '' })
   const mutation = useMutation({
@@ -1407,9 +1408,11 @@ function AuthPage() {
         await signup({ username: form.username, password: form.password, name: form.name })
         return null
       }
-      return login({ username: form.username, password: form.password })
+      return isAdminLogin
+        ? adminLogin({ username: form.username, password: form.password })
+        : login({ username: form.username, password: form.password })
     },
-    onSuccess: () => navigate(isSignup ? '/login' : '/'),
+    onSuccess: () => navigate(isSignup ? '/login' : isAdminLogin ? '/admin' : '/'),
   })
 
   return (
@@ -1418,9 +1421,15 @@ function AuthPage() {
         <Link to="/" className="text-xl font-black text-emerald-700">
           parut<span className="text-orange-500">.</span>
         </Link>
-        <h1 className="mt-10 text-3xl font-black">{isSignup ? '파릇한 시작' : '다시 만나요'}</h1>
+        <h1 className="mt-10 text-3xl font-black">
+          {isSignup ? '파릇한 시작' : isAdminLogin ? '관리자 로그인' : '다시 만나요'}
+        </h1>
         <p className="mt-2 text-sm text-slate-500">
-          {isSignup ? '파릇 서비스에 가입해보세요.' : '파릇한 장보기를 시작해보세요.'}
+          {isSignup
+            ? '파릇 서비스에 가입해보세요.'
+            : isAdminLogin
+              ? 'Parut 운영자 계정으로 로그인하세요.'
+              : '파릇한 장보기를 시작해보세요.'}
         </p>
         <form
           className="mt-8 space-y-3"
@@ -1459,15 +1468,24 @@ function AuthPage() {
             disabled={mutation.isPending}
             className="w-full rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {mutation.isPending ? '처리 중...' : isSignup ? '회원가입' : '로그인'}
+            {mutation.isPending
+              ? '처리 중...'
+              : isSignup
+                ? '회원가입'
+                : isAdminLogin
+                  ? '관리자 로그인'
+                  : '로그인'}
           </button>
         </form>
         <div className="mt-6 flex justify-between text-xs text-slate-500">
-          <Link to={isSignup ? '/login' : '/signup'} className="hover:text-emerald-700">
-            {isSignup ? '로그인으로 돌아가기' : '회원가입'}
+          <Link
+            to={isSignup || isAdminLogin ? '/login' : '/signup'}
+            className="hover:text-emerald-700"
+          >
+            {isSignup || isAdminLogin ? '로그인으로 돌아가기' : '회원가입'}
           </Link>
-          <Link to="/seller" className="hover:text-emerald-700">
-            판매자 센터 미리보기
+          <Link to={isAdminLogin ? '/login' : '/admin/login'} className="hover:text-emerald-700">
+            {isAdminLogin ? '일반 로그인' : '관리자 로그인'}
           </Link>
         </div>
       </div>
@@ -1717,6 +1735,7 @@ function App() {
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
       <Route path="/login" element={<AuthPage />} />
       <Route path="/signup" element={<AuthPage />} />
+      <Route path="/admin/login" element={<AuthPage />} />
       <Route path="/seller" element={<DashboardPage role="seller" />} />
       <Route path="/seller/products" element={<DashboardPage role="seller" section="products" />} />
       <Route path="/seller/stocks" element={<DashboardPage role="seller" section="stocks" />} />
