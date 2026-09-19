@@ -2,9 +2,11 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   confirmOrderItem,
   createOrder,
+  createTimeDealOrder,
   getOrder,
   preparePayment,
   type CreateOrderInput,
+  type CreateTimeDealOrderInput,
 } from './api'
 
 export const orderKeys = {
@@ -14,6 +16,12 @@ export const orderKeys = {
 
 export function useCreateOrder() {
   return useMutation({ mutationFn: (input: CreateOrderInput) => createOrder(input) })
+}
+
+export function useCreateTimeDealOrder() {
+  return useMutation({
+    mutationFn: (input: CreateTimeDealOrderInput) => createTimeDealOrder(input),
+  })
 }
 
 export function useOrder(orderId: string | undefined) {

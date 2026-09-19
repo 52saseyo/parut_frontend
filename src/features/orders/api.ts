@@ -15,6 +15,13 @@ export type CreateOrderInput = {
   removeFromCart?: boolean
 }
 
+export type CreateTimeDealOrderInput = {
+  timeDealId: string
+  productId: string
+  quantity: number
+  recipient: Recipient
+}
+
 export type OrderCreateResponse = {
   orderId: string
   orderNo: string
@@ -109,6 +116,15 @@ export async function createOrder(input: CreateOrderInput) {
   const response = await apiClient.post<ApiResponse<OrderCreateResponse>>(
     '/api/v1/orders',
     createOrderPayload(input),
+    { headers: { 'Idempotency-Key': idempotencyKey() } },
+  )
+  return response.data.data
+}
+
+export async function createTimeDealOrder(input: CreateTimeDealOrderInput) {
+  const response = await apiClient.post<ApiResponse<OrderCreateResponse>>(
+    '/api/v1/orders/time-deals',
+    input,
     { headers: { 'Idempotency-Key': idempotencyKey() } },
   )
   return response.data.data

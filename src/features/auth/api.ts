@@ -10,6 +10,14 @@ export type SignupRequest = LoginRequest & {
   slackId?: string
 }
 
+export type UserProfile = {
+  id: string
+  username: string
+  name: string
+  slackId: string | null
+  createdAt: string
+}
+
 export async function login(request: LoginRequest) {
   const response = await apiClient.post<ApiResponse<TokenResponse>>(
     '/api/v1/auth/login/user',
@@ -29,4 +37,9 @@ export async function logout() {
   } finally {
     authStorage.clear()
   }
+}
+
+export async function getMyInfo() {
+  const response = await apiClient.get<ApiResponse<UserProfile>>('/api/v1/users/me')
+  return response.data.data
 }
