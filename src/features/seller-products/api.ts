@@ -157,6 +157,15 @@ export async function updateSellerStock(productId: string, totalQuantity: number
 }
 
 export async function uploadProductImage(productId: string, file: File) {
+  const image = await uploadImage(file)
+
+  await apiClient.post<ApiResponse<null>>(`/api/v1/seller/products/${productId}/images`, {
+    imageId: image.imageId,
+  })
+  return image
+}
+
+export async function uploadImage(file: File) {
   const uploadResponse = await apiClient.post<
     ApiResponse<{ imageKey: string; uploadUrl: string }>
   >('/api/v1/images/presigned-url', {
@@ -173,12 +182,15 @@ export async function uploadProductImage(productId: string, file: File) {
     '/api/v1/images/complete',
     { imageKey, originalName: file.name },
   )
-  const { imageId } = completeResponse.data.data
-
-  await apiClient.post<ApiResponse<null>>(`/api/v1/seller/products/${productId}/images`, {
-    imageId,
-  })
   return completeResponse.data.data
+}
+
+export async function uploadTimeDealImage(timeDealId: string, file: File) {
+  const image = await uploadImage(file)
+  await apiClient.post<ApiResponse<null>>(`/api/v1/time-deals/${timeDealId}/images`, {
+    imageId: image.imageId,
+  })
+  return image
 }
 
 export async function createTimeDeal(input: TimeDealCreateInput) {
@@ -187,6 +199,12 @@ export async function createTimeDeal(input: TimeDealCreateInput) {
     input,
   )
   return response.data.data
+}
+
+export async function createTimeDealWithImage(input: TimeDealCreateInput, file: File) {
+  const timeDeal = await createTimeDeal(input)
+  await uploadTimeDealImage(timeDeal.timeDealId, file)
+  return timeDeal
 }
 
 export async function convertProductToTimeDeal(input: TimeDealConvertInput) {
