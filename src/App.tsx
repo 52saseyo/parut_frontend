@@ -223,12 +223,20 @@ function StatusBadge({
   )
 }
 
-function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
+function ProductVisual({
+  product,
+  large = false,
+  compact = false,
+}: {
+  product: Product
+  large?: boolean
+  compact?: boolean
+}) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
   const hasImage = Boolean(product.imageUrl) && failedImageUrl !== product.imageUrl
   return (
     <div
-      className={`relative flex ${large ? 'h-80' : 'h-48'} items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.accent}`}
+      className={`relative flex ${large ? 'h-80' : compact ? 'h-24' : 'h-48'} w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.accent}`}
     >
       {hasImage ? (
         <img
@@ -239,7 +247,9 @@ function ProductVisual({ product, large = false }: { product: Product; large?: b
         />
       ) : (
         <div className="flex flex-col items-center justify-center text-slate-500">
-          <span className={`${large ? 'text-5xl' : 'text-3xl'} font-black tracking-[0.18em]`}>
+          <span
+            className={`${large ? 'text-5xl' : compact ? 'text-xs' : 'text-3xl'} font-black tracking-[0.18em]`}
+          >
             NO IMAGE
           </span>
           <span className="mt-2 text-xs font-medium">이미지 준비 중</span>
@@ -1067,8 +1077,8 @@ function CheckoutPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-bold">주문 상품</h2>
               <div className="mt-5 flex items-center gap-4">
-                <div className="w-20 shrink-0">
-                  <ProductVisual product={product} />
+                <div className="w-24 shrink-0">
+                  <ProductVisual product={product} compact />
                 </div>
                 <div>
                   <p className="font-bold">{product.name}</p>
