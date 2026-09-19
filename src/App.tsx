@@ -504,6 +504,30 @@ function HomePage() {
             </div>
           </div>
         </section>
+        <section className="mx-auto mt-2 max-w-7xl px-5 sm:px-8">
+          <div className="grid gap-6 rounded-3xl border border-emerald-100 bg-white p-6 sm:p-8 lg:grid-cols-[1.1fr_1.9fr] lg:items-center">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">Fresh market, fair price</p>
+              <h2 className="mt-3 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">
+                오늘의 식탁을 <span className="text-emerald-700">파릇하게</span> 채우는 방법
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-500">산지의 신선함은 그대로, 필요한 만큼만 합리적으로 만나보세요.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ['🌱', '산지직송', '농가의 신선함을 바로'],
+                ['⏱️', '타임딜', '지금 만나는 특별한 가격'],
+                ['🤝', '함께 만드는 가치', '생산자와 소비자가 함께 성장'],
+              ].map(([icon, title, description]) => (
+                <div key={title} className="rounded-2xl bg-emerald-50 p-4">
+                  <p className="text-2xl">{icon}</p>
+                  <p className="mt-3 text-sm font-bold text-slate-900">{title}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
         <section className="mx-auto max-w-7xl px-5 sm:px-8">
           <div className="flex items-end justify-between">
             <div>
@@ -1409,8 +1433,15 @@ function AuthPage() {
   })
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5">
-      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+    <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5 py-8 sm:py-12">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-900/5 lg:grid-cols-[1fr_0.8fr]">
+        <div
+          className="order-first h-36 bg-cover bg-center lg:order-last lg:h-auto lg:min-h-[620px]"
+          style={{ backgroundImage: "url('/images/parut.png')" }}
+          role="img"
+          aria-label="파릇 신선식품 서비스 소개"
+        />
+        <div className="p-7 sm:p-10">
         <Link to="/" className="text-xl font-black text-emerald-700">
           parut<span className="text-orange-500">.</span>
         </Link>
@@ -1497,6 +1528,7 @@ function AuthPage() {
               </Link>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>
