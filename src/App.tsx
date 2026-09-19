@@ -26,6 +26,7 @@ type Product = {
   originalPrice?: number
   unit: string
   stock: number
+  lowStockThreshold?: number
   seller: string
   emoji: string
   accent: string
@@ -158,6 +159,7 @@ function productFromApi(product: ApiProduct | ApiProductDetail): Product {
         ? `${product.unitQuantity}${product.saleUnit === 'KG' ? 'kg' : product.saleUnit.toLowerCase()}`
         : '상품 단위',
     stock: 'availableQuantity' in product ? product.availableQuantity : 0,
+    lowStockThreshold: product.lowStockThreshold,
     seller: product.origin,
     emoji: category === '과일' ? '🍓' : category === '곡물' ? '🌾' : '🥬',
     accent:
@@ -181,6 +183,7 @@ function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
     originalPrice: timeDeal.originalPrice,
     unit: '상품 단위',
     stock: timeDeal.stock.availableQuantity,
+    lowStockThreshold: timeDeal.stock.lowStockThreshold,
     seller: timeDeal.origin,
     emoji: timeDeal.productGrade === 'UGLY' ? '🥕' : '🍓',
     accent:
@@ -196,6 +199,14 @@ function remainingSeconds(endAt?: string) {
   if (!endAt) return null
   const seconds = Math.floor((new Date(endAt).getTime() - Date.now()) / 1000)
   return Number.isNaN(seconds) ? null : Math.max(0, seconds)
+}
+
+function isLowStock(product: Product) {
+  return (
+    product.lowStockThreshold !== undefined &&
+    product.stock <= product.lowStockThreshold &&
+    product.stock > 0
+  )
 }
 
 function formatRemainingTime(seconds: number) {
@@ -311,6 +322,11 @@ function ProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
         <p className="mt-2 text-lg font-bold text-slate-950">{money(product.price)}</p>
+        {isLowStock(product) && (
+          <p className="mt-1 text-xs font-bold text-orange-600">
+            마감 임박 · {product.stock}개 남음
+          </p>
+        )}
         <p className="mt-1 text-xs text-slate-500">
           {product.unit} · {product.seller}
         </p>
@@ -698,6 +714,7 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
                 {product.stock > 0 ? '판매 중' : '품절'}
               </StatusBadge>
               {product.timeDeal && <StatusBadge tone="orange">타임딜</StatusBadge>}
+              {isLowStock(product) && <StatusBadge tone="orange">마감 임박</StatusBadge>}
             </div>
             <p className="mt-5 text-sm text-slate-500">
               {product.category} · {product.seller}

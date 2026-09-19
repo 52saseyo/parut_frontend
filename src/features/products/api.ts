@@ -10,6 +10,7 @@ export type ApiProduct = {
   price: number
   appearanceType: AppearanceType
   origin: string
+  lowStockThreshold?: number
 }
 
 export type ApiProductDetail = ApiProduct & {
@@ -20,6 +21,7 @@ export type ApiProductDetail = ApiProduct & {
   status: 'DRAFT' | 'ON_SALE' | 'SOLD_OUT' | 'SUSPENDED' | 'DELETED'
   availableQuantity: number
   imageUrl: string | null
+  lowStockThreshold?: number
 }
 
 export type CursorResponse<T> = {
