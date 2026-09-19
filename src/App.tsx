@@ -11,7 +11,7 @@ import {
   type SellerApplicationRequest,
 } from './features/sellers/api'
 import { useMySellerApplicationStatus } from './features/sellers/hooks'
-import { useSellerProductMutations, useSellerProducts, useSellerStocks } from './features/seller-products/hooks'
+import { useSellerProduct, useSellerProductMutations, useSellerProducts, useSellerStocks } from './features/seller-products/hooks'
 import type { AppearanceType, ProductCategory, ProductStatus, SaleUnit } from './features/seller-products/api'
 import {
   useCreateOrder,
@@ -1833,11 +1833,88 @@ function sellerLocalDateTime(date = new Date()) {
 const defaultSellerStartAt = sellerLocalDateTime()
 const defaultSellerEndAt = sellerLocalDateTime(new Date(Date.now() + 86_400_000))
 
+function SellerProductEditForm({ productId, onClose }: { productId: string; onClose: () => void }) {
+  const detailQuery = useSellerProduct(productId)
+  const mutations = useSellerProductMutations()
+  const [form, setForm] = useState({
+    category: 'VEGETABLE' as ProductCategory,
+    name: '',
+    description: '',
+    price: '',
+    appearanceType: 'NORMAL' as AppearanceType,
+    origin: '',
+    harvestDate: '',
+    saleUnit: 'EA' as SaleUnit,
+    unitQuantity: '1',
+  })
+
+  useEffect(() => {
+    const product = detailQuery.data
+    if (!product) return
+    setForm({
+      category: product.category,
+      name: product.name,
+      description: product.description ?? '',
+      price: String(product.price),
+      appearanceType: product.appearanceType,
+      origin: product.origin,
+      harvestDate: product.harvestDate,
+      saleUnit: product.saleUnit,
+      unitQuantity: String(product.unitQuantity),
+    })
+  }, [detailQuery.data])
+
+  const update = (field: string, value: string) => setForm((current) => ({ ...current, [field]: value }))
+  if (detailQuery.isPending) return <div className="animate-pulse p-5 text-sm text-slate-500">상품 정보를 불러오는 중입니다.</div>
+  if (detailQuery.isError || !detailQuery.data) return <div className="p-5 text-sm text-red-600">상품 정보를 불러오지 못했습니다.</div>
+
+  return (
+    <form
+      className="grid gap-3 bg-emerald-50 px-5 py-5 sm:grid-cols-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        mutations.update.mutate({
+          productId,
+          input: {
+            category: form.category,
+            name: form.name,
+            description: form.description,
+            price: Number(form.price),
+            appearanceType: form.appearanceType,
+            origin: form.origin,
+            harvestDate: form.harvestDate,
+            saleUnit: form.saleUnit,
+            unitQuantity: Number(form.unitQuantity),
+          },
+        }, { onSuccess: onClose })
+      }}
+    >
+      <div className="flex items-center justify-between sm:col-span-2">
+        <h4 className="font-bold">상품 정보 수정</h4>
+        <button type="button" onClick={onClose} className="text-xs font-semibold text-slate-500">닫기</button>
+      </div>
+      <SellerFormField label="상품명"><input required value={form.name} onChange={(event) => update('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      <SellerFormField label="원산지"><input required value={form.origin} onChange={(event) => update('origin', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      <SellerFormField label="상품 카테고리"><select value={form.category} onChange={(event) => update('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">{sellerProductCategories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></SellerFormField>
+      <SellerFormField label="외관 유형"><select value={form.appearanceType} onChange={(event) => update('appearanceType', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"><option value="NORMAL">일반 외관</option><option value="UGLY">못난이 상품</option></select></SellerFormField>
+      <SellerFormField label="판매 가격"><input required type="number" min="0" value={form.price} onChange={(event) => update('price', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      <SellerFormField label="수확일"><input required type="date" value={form.harvestDate} onChange={(event) => update('harvestDate', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      <SellerFormField label="판매 단위"><select value={form.saleUnit} onChange={(event) => update('saleUnit', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"><option value="G">g</option><option value="KG">kg</option><option value="EA">개</option><option value="BOX">박스</option></select></SellerFormField>
+      <SellerFormField label="판매 단위 수량"><input required type="number" min="0.01" step="0.01" value={form.unitQuantity} onChange={(event) => update('unitQuantity', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      <SellerFormField label="상품 설명" className="sm:col-span-2"><textarea value={form.description} onChange={(event) => update('description', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+      {mutations.update.isError && <p className="sm:col-span-2 text-xs text-red-600">상품 수정에 실패했습니다.</p>}
+      <button disabled={mutations.update.isPending} className="sm:col-span-2 rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white disabled:opacity-50">{mutations.update.isPending ? '저장 중...' : '수정 내용 저장'}</button>
+    </form>
+  )
+}
+
 function SellerProductManagement() {
   const [keyword, setKeyword] = useState('')
   const [submittedKeyword, setSubmittedKeyword] = useState('')
   const [status, setStatus] = useState<ProductStatus | ''>('')
   const [showCreate, setShowCreate] = useState(false)
+  const [actionProductId, setActionProductId] = useState<string | null>(null)
+  const [editProductId, setEditProductId] = useState<string | null>(null)
   const [convertProductId, setConvertProductId] = useState<string | null>(null)
   const productsQuery = useSellerProducts({
     page: 1,
@@ -1999,8 +2076,14 @@ function SellerProductManagement() {
                         <span title="품절 상품은 재고를 보충한 뒤 판매 재개 API가 필요합니다." className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-400">판매 시작 불가</span>
                       )}
                       <button type="button" onClick={() => setConvertProductId(convertProductId === product.productId ? null : product.productId)} className="rounded-lg bg-orange-100 px-3 py-2 text-xs font-bold text-orange-700">타임딜 전환</button>
+                      <button type="button" onClick={() => setActionProductId(actionProductId === product.productId ? null : product.productId)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">관리 ▾</button>
+                      {actionProductId === product.productId && <>
+                        <button type="button" onClick={() => { setEditProductId(editProductId === product.productId ? null : product.productId); setActionProductId(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">수정</button>
+                        <button type="button" onClick={() => { if (window.confirm('이 상품을 삭제하시겠습니까?')) mutations.remove.mutate(product.productId); setActionProductId(null) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">삭제</button>
+                      </>}
                     </div></td>
                   </tr>
+                  {editProductId === product.productId && <tr><td colSpan={5}><SellerProductEditForm productId={product.productId} onClose={() => setEditProductId(null)} /></td></tr>}
                   {convertProductId === product.productId && (
                     <tr><td colSpan={5} className="bg-orange-50 px-5 py-4">
                       <form className="grid gap-2 sm:grid-cols-3" onSubmit={(event) => { event.preventDefault(); mutations.convert.mutate({ productId: product.productId, quantity: Number(convertForm.quantity), discountRate: Number(convertForm.discountRate), startAt: new Date(convertForm.startAt).toISOString(), endAt: new Date(convertForm.endAt).toISOString(), maxPurchaseQuantity: Number(convertForm.maxPurchaseQuantity), lowStockThreshold: Number(convertForm.lowStockThreshold) }, { onSuccess: () => setConvertProductId(null) }) }}>

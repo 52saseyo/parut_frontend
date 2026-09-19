@@ -122,6 +122,10 @@ export async function updateSellerProduct(productId: string, input: UpdateProduc
   return response.data.data
 }
 
+export async function deleteSellerProduct(productId: string) {
+  await apiClient.delete<ApiResponse<null>>(`/api/v1/seller/products/${productId}`)
+}
+
 export async function updateSellerProductStatus(productId: string, status: ProductStatus) {
   const response = await apiClient.patch<ApiResponse<{ productId: string; status: ProductStatus }>>(
     `/api/v1/seller/products/${productId}/status`,
