@@ -22,6 +22,16 @@ VITE_API_BASE_URL=http://localhost:8080
 
 현재 구현된 API 모듈은 `src/features/auth`와 `src/features/products`에 있으며, 백엔드 응답이 없을 때 화면 확인을 위해 기존 목업 데이터를 fallback으로 사용합니다.
 
+주문·결제 API는 `src/features/orders`에서 관리합니다.
+
+- `POST /api/v1/orders`: 일반 주문 생성. `Idempotency-Key` 헤더가 필요합니다.
+- `GET /api/v1/orders/{orderId}`: 주문 상세 조회
+- `PATCH /api/v1/orders/{orderId}/items/{orderItemId}/confirm`: 주문 상품 구매확정
+- `POST /api/v1/payments/ready`: 결제 준비
+- `POST /api/v1/payments/confirm`: 결제 확정. `Idempotency-Key` 헤더가 필요합니다.
+
+현재 백엔드 `OrderController`에는 고객 주문 목록 조회 endpoint가 없으므로 `/orders` 목록은 임시 데이터로 유지하고, 상세 화면은 UUID 주문번호가 들어오면 실제 API를 조회합니다. 목록 API가 추가되면 같은 query 계층에 연결합니다.
+
 ## 상태 처리
 
 모든 API 화면은 최소한 다음 상태를 고려합니다.

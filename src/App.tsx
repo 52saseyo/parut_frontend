@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { login, signup } from './features/auth/api'
+import { useCreateOrder, useOrder, usePreparePayment } from './features/orders/hooks'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 
@@ -489,7 +490,7 @@ function ProductDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() => navigate('/checkout')}
+              onClick={() => navigate('/checkout', { state: { productId: product.id, quantity } })}
               className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 text-sm font-bold text-white hover:bg-emerald-800"
             >
               {money(product.price * quantity)} 주문하기
@@ -555,6 +556,9 @@ function OrdersPage() {
 
 function OrderDetailPage() {
   const { orderId } = useParams()
+  const orderQuery = useOrder(orderId)
+  const displayOrderId = orderQuery.data?.orderNo ?? orderId
+  const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
   return (
     <PublicLayout>
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
@@ -564,10 +568,15 @@ function OrderDetailPage() {
         <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm text-slate-500">주문 상세</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">{orderId}</h1>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">{displayOrderId}</h1>
           </div>
-          <StatusBadge tone="orange">배송 준비 중</StatusBadge>
+          <StatusBadge tone={orderQuery.data ? 'green' : 'orange'}>{displayStatus}</StatusBadge>
         </div>
+        {orderQuery.isError && (
+          <p className="mt-4 text-xs text-orange-600">
+            주문 API 응답이 없어 임시 주문 상세를 표시하고 있습니다.
+          </p>
+        )}
         <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]">
           <section className="rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="font-bold">주문 상품</h2>
@@ -629,7 +638,39 @@ function OrderDetailPage() {
 }
 
 function CheckoutPage() {
+  const location = useLocation()
+  const orderMutation = useCreateOrder()
+  const paymentMutation = usePreparePayment()
+  const state = location.state as { productId?: string; quantity?: number } | null
+  const product = products.find((item) => item.id === state?.productId) ?? products[0]
+  const quantity = state?.quantity ?? 1
+  const [recipient, setRecipient] = useState({
+    recipientName: '파릇 고객',
+    recipientPhone: '010-0000-0000',
+    zipCode: '00000',
+    addressBase: '서울시 파릇구 파릇로 1',
+    addressDetail: '',
+    deliveryRequest: '',
+  })
   const [submitted, setSubmitted] = useState(false)
+  const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
+
+  async function submitOrder() {
+    const isUuid = Boolean(state?.productId && /^[0-9a-f-]{36}$/i.test(state.productId))
+    if (!isUuid) {
+      setSubmitted(true)
+      return
+    }
+
+    const created = await orderMutation.mutateAsync({
+      items: [{ productId: state?.productId as string, quantity }],
+      recipient,
+    })
+    await paymentMutation.mutateAsync({ orderId: created.orderId, paymentMethod: 'TOSS_PAY' })
+    setApiOrderNo(created.orderNo)
+    setSubmitted(true)
+  }
+
   if (submitted)
     return (
       <PublicLayout>
@@ -637,8 +678,11 @@ function CheckoutPage() {
           <div className="text-6xl">🌱</div>
           <h1 className="mt-6 text-3xl font-black">주문이 접수됐어요</h1>
           <p className="mt-3 text-slate-500">
-            결제와 주문 상태는 주문 내역에서 확인할 수 있습니다.
+            결제 준비가 완료됐습니다. 주문 상태는 주문 내역에서 확인할 수 있습니다.
           </p>
+          {apiOrderNo && (
+            <p className="mt-3 text-sm font-bold text-emerald-700">주문번호 {apiOrderNo}</p>
+          )}
           <Link
             to="/orders"
             className="mt-8 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white"
@@ -674,17 +718,26 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="받는 분"
-                  defaultValue="파릇 고객"
+                  value={recipient.recipientName}
+                  onChange={(event) =>
+                    setRecipient({ ...recipient, recipientName: event.target.value })
+                  }
                 />
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="연락처"
-                  defaultValue="010-0000-0000"
+                  value={recipient.recipientPhone}
+                  onChange={(event) =>
+                    setRecipient({ ...recipient, recipientPhone: event.target.value })
+                  }
                 />
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="배송 주소"
-                  defaultValue="서울시 파릇구 파릇로 1"
+                  value={recipient.addressBase}
+                  onChange={(event) =>
+                    setRecipient({ ...recipient, addressBase: event.target.value })
+                  }
                 />
               </div>
             </div>
@@ -694,7 +747,7 @@ function CheckoutPage() {
             <div className="mt-5 space-y-3 text-sm text-slate-300">
               <div className="flex justify-between">
                 <span>상품 금액</span>
-                <span>12,900원</span>
+                <span>{money(product.price * quantity)}</span>
               </div>
               <div className="flex justify-between">
                 <span>배송비</span>
@@ -702,15 +755,23 @@ function CheckoutPage() {
               </div>
               <div className="flex justify-between border-t border-white/10 pt-3 text-base font-bold text-white">
                 <span>총 결제 금액</span>
-                <span>15,900원</span>
+                <span>{money(product.price * quantity + 3000)}</span>
               </div>
             </div>
+            {(orderMutation.isError || paymentMutation.isError) && (
+              <p className="mt-4 text-xs text-red-300">
+                주문 또는 결제 준비에 실패했습니다. 로그인 상태와 백엔드 응답을 확인해주세요.
+              </p>
+            )}
             <button
               type="button"
-              onClick={() => setSubmitted(true)}
-              className="mt-7 w-full rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-emerald-950 hover:bg-emerald-300"
+              disabled={orderMutation.isPending || paymentMutation.isPending}
+              onClick={() => void submitOrder()}
+              className="mt-7 w-full rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              15,900원 결제하기
+              {orderMutation.isPending || paymentMutation.isPending
+                ? '주문 처리 중...'
+                : `${money(product.price * quantity + 3000)} 결제 준비`}
             </button>
           </aside>
         </div>
