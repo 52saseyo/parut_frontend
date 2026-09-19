@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { adminLogin, login, logout, signup } from './features/auth/api'
 import { useMyInfo } from './features/auth/hooks'
+import { useProcessSellerApplication, useSellerApplications } from './features/admin/hooks'
+import type { SellerApplication, SellerStatus } from './features/admin/api'
 import {
   useCreateOrder,
   useCreateTimeDealOrder,
@@ -1681,34 +1683,7 @@ function DashboardPage({
         </div>
       )}
       {section === 'sellers' && (
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4 font-bold">판매자 승인 대기</div>
-          {['산들바다 수산', '시골한상', '푸른들 농장'].map((name) => (
-            <div
-              key={name}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 last:border-0"
-            >
-              <div>
-                <p className="font-bold">{name}</p>
-                <p className="mt-1 text-xs text-slate-500">입점 신청 · 2025.09.18</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white"
-                >
-                  승인
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600"
-                >
-                  검토
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <AdminSellerApplications />
       )}
       {(section === 'orders' || section === 'admin-orders') && (
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
@@ -1732,6 +1707,197 @@ function DashboardPage({
         </div>
       )}
     </DashboardLayout>
+  )
+}
+
+function sellerStatusLabel(status: SellerStatus) {
+  return status === 'PENDING' ? '승인 대기' : status === 'APPROVED' ? '승인 완료' : '반려'
+}
+
+function sellerStatusTone(status: SellerStatus) {
+  return status === 'APPROVED' ? 'green' : status === 'REJECTED' ? 'red' : 'orange'
+}
+
+function formatApplicationDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ko-KR')
+}
+
+function AdminSellerApplications() {
+  const [keyword, setKeyword] = useState('')
+  const [submittedKeyword, setSubmittedKeyword] = useState('')
+  const [page, setPage] = useState(0)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const applicationsQuery = useSellerApplications(submittedKeyword, page)
+  const processMutation = useProcessSellerApplication()
+  const applications = applicationsQuery.data?.content ?? []
+  const pageInfo = applicationsQuery.data?.pageInfo
+
+  const process = (application: SellerApplication, status: 'APPROVED' | 'REJECTED') => {
+    if (status === 'REJECTED' && !rejectReason.trim()) return
+    processMutation.mutate(
+      {
+        applicationId: application.id,
+        input: {
+          status,
+          ...(status === 'REJECTED' ? { rejectReason: rejectReason.trim() } : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          setRejectingId(null)
+          setRejectReason('')
+        },
+      },
+    )
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-bold text-slate-950">판매자 신청 목록</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              신청 정보를 확인하고 판매자 입점을 승인하거나 반려할 수 있습니다.
+            </p>
+          </div>
+          <form
+            className="flex w-full gap-2 sm:w-auto"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setPage(0)
+              setSubmittedKeyword(keyword.trim())
+            }}
+          >
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 sm:w-56"
+              placeholder="업체명·담당자 검색"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700"
+            >
+              검색
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {applicationsQuery.isPending && (
+        <div className="mt-4 space-y-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div key={index} className="h-40 animate-pulse rounded-2xl bg-slate-200" />
+          ))}
+        </div>
+      )}
+
+      {applicationsQuery.isError && (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          판매자 신청 목록을 불러오지 못했습니다. 관리자 로그인 상태와 백엔드 연결을 확인해주세요.
+        </div>
+      )}
+
+      {!applicationsQuery.isPending && !applicationsQuery.isError && applications.length === 0 && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          {submittedKeyword ? '검색 결과가 없습니다.' : '판매자 신청이 없습니다.'}
+        </div>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {applications.map((application) => (
+          <article key={application.id} className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-bold text-slate-950">{application.companyName}</h3>
+                  <StatusBadge tone={sellerStatusTone(application.status) as 'green' | 'orange' | 'red'}>
+                    {sellerStatusLabel(application.status)}
+                  </StatusBadge>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  대표 {application.repName} · 사업자등록번호 {application.bizRegNo}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  신청자 {application.managerName} · {application.managerPhone} · {application.loginId}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {application.bizAddress} · 신청일 {formatApplicationDate(application.createdAt)}
+                </p>
+              </div>
+              {application.status === 'PENDING' && (
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    disabled={processMutation.isPending}
+                    onClick={() => process(application, 'APPROVED')}
+                    className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
+                  >
+                    승인
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processMutation.isPending}
+                    onClick={() => {
+                      setRejectingId(rejectingId === application.id ? null : application.id)
+                      setRejectReason('')
+                    }}
+                    className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    반려
+                  </button>
+                </div>
+              )}
+            </div>
+            {rejectingId === application.id && (
+              <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                <input
+                  value={rejectReason}
+                  onChange={(event) => setRejectReason(event.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-400"
+                  placeholder="반려 사유를 입력해주세요."
+                />
+                <button
+                  type="button"
+                  disabled={!rejectReason.trim() || processMutation.isPending}
+                  onClick={() => process(application, 'REJECTED')}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  반려 확정
+                </button>
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {pageInfo && pageInfo.totalPages > 1 && (
+        <div className="mt-5 flex items-center justify-center gap-3 text-sm">
+          <button
+            type="button"
+            disabled={page === 0}
+            onClick={() => setPage((current) => current - 1)}
+            className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40"
+          >
+            이전
+          </button>
+          <span className="text-slate-500">
+            {pageInfo.page + 1} / {pageInfo.totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={pageInfo.last}
+            onClick={() => setPage((current) => current + 1)}
+            className="rounded-lg border border-slate-200 px-3 py-2 font-semibold disabled:opacity-40"
+          >
+            다음
+          </button>
+        </div>
+      )}
+    </section>
   )
 }
 
