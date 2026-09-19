@@ -1014,16 +1014,10 @@ function CheckoutPage() {
   async function submitOrder() {
     if (!product) return
     setValidationError(null)
-    const linkedProductId = product.productId
-    if (isTimeDeal && !linkedProductId) {
-      setValidationError('타임딜에 연결된 상품 정보를 찾을 수 없어 주문할 수 없습니다.')
-      return
-    }
     localStorage.setItem('parut.checkout.recipient', JSON.stringify(effectiveRecipient))
     const created = isTimeDeal
       ? await timeDealOrderMutation.mutateAsync({
           timeDealId: product.id,
-          productId: linkedProductId as string,
           quantity,
           recipient: effectiveRecipient,
         })

@@ -35,7 +35,7 @@ VITE_API_BASE_URL=http://localhost:8080
 checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 
 - 일반 상품: `POST /api/v1/orders`에 `items[].productId`를 전달합니다.
-- 타임딜: `POST /api/v1/orders/time-deals`에 `timeDealId`와 연결된 `productId`를 함께 전달합니다. 타임딜 화면의 선택 식별자는 `timeDealId`이며, 재고·상품 연결 검증을 위해 백엔드 계약상 `productId`도 필요합니다.
+- 타임딜: `POST /api/v1/orders/time-deals`에 `timeDealId`, 수량, 배송정보를 전달합니다. 연결된 상품 정보는 백엔드가 `timeDealId`를 기준으로 결정합니다.
 - 결제 준비는 주문 생성 응답의 `orderId`를 `POST /api/v1/payments/ready`에 전달합니다.
 
 현재 백엔드 `OrderController`에는 고객 주문 목록 조회 endpoint가 없으므로 `/orders` 목록은 임시 데이터로 유지하고, 상세 화면은 UUID 주문번호가 들어오면 실제 API를 조회합니다. 목록 API가 추가되면 같은 query 계층에 연결합니다.
