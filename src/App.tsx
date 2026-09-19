@@ -426,6 +426,9 @@ function Header() {
           <Link to="/seller" className="hidden text-xs font-semibold text-slate-500 sm:block">
             판매자 센터
           </Link>
+          <Link to="/admin/login" className="hidden text-xs font-semibold text-slate-500 sm:block">
+            관리자 센터
+          </Link>
           {isAuthenticated ? (
             <button
               type="button"
@@ -2270,9 +2273,6 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
             </StatusBadge>
             {seller ? (
               <>
-                <Link to="/admin/login" className="text-sm font-semibold text-slate-500 hover:text-slate-900">
-                  관리자 센터
-                </Link>
                 <Link to="/" className="text-sm font-semibold text-slate-500 hover:text-slate-900">
                   서비스 보기
                 </Link>
