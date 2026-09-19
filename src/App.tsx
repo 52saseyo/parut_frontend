@@ -410,7 +410,7 @@ function Header() {
             </Link>
           )}
           <Link
-            to="/checkout"
+            to="/cart"
             aria-label="장바구니"
             className="rounded-full bg-slate-950 px-3 py-2 text-sm text-white"
           >
@@ -1216,6 +1216,70 @@ function CheckoutPage() {
   )
 }
 
+function CartPage() {
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
+  const cartItems = [
+    { product: products[0], quantity: 1 },
+    { product: products[1], quantity: 2 },
+  ]
+  const totalAmount = cartItems.reduce(
+    (total, item) => total + item.product.price * item.quantity,
+    0,
+  )
+
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        <p className="text-sm font-bold text-emerald-700">MY PARUT</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">장바구니</h1>
+        {!isAuthenticated ? (
+          <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-16 text-center">
+            <div className="text-5xl">🔐</div>
+            <h2 className="mt-5 text-xl font-black text-slate-950">로그인이 필요한 기능입니다</h2>
+            <p className="mt-3 text-sm text-slate-600">장바구니는 로그인 후 이용할 수 있습니다.</p>
+            <Link
+              to="/login"
+              className="mt-7 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800"
+            >
+              로그인하러 가기
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+              장바구니 API가 아직 구현되지 않아 샘플 상품을 표시하고 있습니다. 현재 상품
+              추가·삭제·수량 변경은 지원하지 않습니다.
+            </div>
+            <div className="mt-6 space-y-4">
+              {cartItems.map(({ product, quantity }) => (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+                >
+                  <div className="w-24 shrink-0">
+                    <ProductVisual product={product} compact showTimeDealBadge={false} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-slate-950">{product.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {product.unit} · {quantity}개
+                    </p>
+                  </div>
+                  <strong className="shrink-0">{money(product.price * quantity)}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex items-center justify-between rounded-2xl bg-slate-950 p-6 text-white">
+              <span className="text-sm text-slate-300">샘플 장바구니 금액</span>
+              <strong className="text-xl">{money(totalAmount)}</strong>
+            </div>
+          </>
+        )}
+      </main>
+    </PublicLayout>
+  )
+}
+
 function AuthPage() {
   const location = useLocation()
   const isSignup = location.pathname === '/signup'
@@ -1532,6 +1596,7 @@ function App() {
       <Route path="/products/:productId" element={<ProductDetailPage />} />
       <Route path="/time-deals/:productId" element={<ProductDetailPage timeDeal />} />
       <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/cart" element={<CartPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
       <Route path="/login" element={<AuthPage />} />
