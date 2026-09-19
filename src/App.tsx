@@ -1495,6 +1495,7 @@ function AuthPage() {
 
 function DashboardLayout({ children, role }: { children: ReactNode; role: 'seller' | 'admin' }) {
   const seller = role === 'seller'
+  const navigate = useNavigate()
   const links = seller
     ? [
         ['/seller', '대시보드'],
@@ -1522,9 +1523,22 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
             <StatusBadge tone={seller ? 'green' : 'blue'}>
               {seller ? 'SELLER' : 'ADMIN'}
             </StatusBadge>
-            <Link to="/" className="text-sm font-semibold text-slate-500">
-              서비스 보기
-            </Link>
+            {seller ? (
+              <Link to="/" className="text-sm font-semibold text-slate-500">
+                서비스 보기
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="text-sm font-semibold text-slate-500 hover:text-slate-900"
+                onClick={async () => {
+                  await logout()
+                  navigate('/admin/login')
+                }}
+              >
+                로그아웃
+              </button>
+            )}
           </div>
         </div>
       </header>
