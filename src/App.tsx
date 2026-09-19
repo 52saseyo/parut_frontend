@@ -481,47 +481,27 @@ function HomePage() {
   return (
     <PublicLayout>
       <main>
-        <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:pb-24 lg:pt-20">
-          <div>
-            <p className="mb-5 text-sm font-bold uppercase tracking-[0.22em] text-emerald-700">
-              Fresh market, fair price
-            </p>
-            <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-6xl">
-              오늘의 식탁을
-              <br />
-              <span className="text-emerald-700">파릇하게</span> 채우는 방법
-            </h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-slate-600 sm:text-lg">
-              산지의 신선함은 그대로, 필요한 만큼만 합리적으로. 믿을 수 있는 농수산물을 만나보세요.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/products"
-                className="rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 hover:bg-emerald-800"
-              >
-                상품 둘러보기
-              </Link>
-              <Link
-                to="/time-deals"
-                className="rounded-xl bg-orange-100 px-5 py-3.5 text-sm font-bold text-orange-700 hover:bg-orange-200"
-              >
-                마감 임박 타임딜
-              </Link>
-            </div>
+        <section className="mx-auto max-w-7xl px-5 pb-16 pt-8 sm:px-8 lg:pb-24 lg:pt-12">
+          <div className="overflow-hidden rounded-[2rem] bg-emerald-50 shadow-sm ring-1 ring-emerald-900/5">
+            <img
+              src="/images/parut.png"
+              alt="파릇 신선식품 타임딜 서비스 소개"
+              className="block h-auto w-full"
+            />
           </div>
-          <div className="relative min-h-72 overflow-hidden rounded-[2rem] bg-emerald-100 p-8 sm:min-h-96">
-            <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/40" />
-            <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-orange-200/60" />
-            <div className="relative flex h-full flex-col justify-between">
-              <span className="w-fit rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-emerald-800">
-                이번 주 추천
-              </span>
-              <div className="py-8 text-center text-8xl drop-shadow-sm sm:text-9xl">🥕🥬🍓</div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-900">못난이도 맛은 그대로</p>
-                <p className="mt-1 text-2xl font-black text-emerald-950">알뜰한 제철 장보기</p>
-              </div>
-            </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+            <Link
+              to="/products"
+              className="rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 hover:bg-emerald-800"
+            >
+              상품 둘러보기
+            </Link>
+            <Link
+              to="/time-deals"
+              className="rounded-xl bg-orange-100 px-5 py-3.5 text-sm font-bold text-orange-700 hover:bg-orange-200"
+            >
+              마감 임박 타임딜
+            </Link>
           </div>
         </section>
         <section className="mx-auto max-w-7xl px-5 sm:px-8">
