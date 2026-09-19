@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { login, signup } from './features/auth/api'
@@ -22,6 +22,7 @@ type Product = {
   accent: string
   timeDeal?: boolean
   endsAt?: string
+  endAt?: string
 }
 
 const products: Product[] = [
@@ -151,8 +152,36 @@ function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
         ? 'from-orange-200 to-amber-100'
         : 'from-rose-200 to-red-100',
     timeDeal: true,
-    endsAt: new Date(timeDeal.endAt).toLocaleString('ko-KR'),
+    endAt: timeDeal.endAt,
   }
+}
+
+function remainingSeconds(endAt?: string) {
+  if (!endAt) return null
+  const seconds = Math.floor((new Date(endAt).getTime() - Date.now()) / 1000)
+  return Number.isNaN(seconds) ? null : Math.max(0, seconds)
+}
+
+function formatRemainingTime(seconds: number) {
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3_600)
+  const minutes = Math.floor((seconds % 3_600) / 60)
+  const restSeconds = seconds % 60
+  return `${days}일 ${String(hours).padStart(2, '0')}시간 ${String(minutes).padStart(2, '0')}분 ${String(restSeconds).padStart(2, '0')}초`
+}
+
+function useRemainingTime(endAt?: string) {
+  const [seconds, setSeconds] = useState(() => remainingSeconds(endAt))
+
+  useEffect(() => {
+    const update = () => setSeconds(remainingSeconds(endAt))
+    update()
+    if (!endAt) return
+    const timer = window.setInterval(update, 1_000)
+    return () => window.clearInterval(timer)
+  }, [endAt])
+
+  return seconds === null ? null : formatRemainingTime(seconds)
 }
 
 function StatusBadge({
@@ -195,6 +224,7 @@ function ProductVisual({ product, large = false }: { product: Product; large?: b
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const countdown = useRemainingTime(product.endAt)
   return (
     <Link
       to={`${product.timeDeal ? '/time-deals' : '/products'}/${product.id}`}
@@ -205,7 +235,13 @@ function ProductCard({ product }: { product: Product }) {
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium text-slate-500">{product.category}</p>
           {product.timeDeal && (
-            <span className="text-xs font-bold text-orange-600">{product.endsAt}</span>
+            <span className="text-xs font-bold text-orange-600">
+              {product.endAt
+                ? countdown === '0일 00시간 00분 00초'
+                  ? '종료됨'
+                  : countdown
+                : product.endsAt}
+            </span>
           )}
         </div>
         <h3 className="mt-1 truncate font-semibold text-slate-900 group-hover:text-emerald-700">
@@ -217,6 +253,20 @@ function ProductCard({ product }: { product: Product }) {
         </p>
       </div>
     </Link>
+  )
+}
+
+function ProductCardSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-48 rounded-2xl bg-slate-200" />
+      <div className="space-y-3 pt-4">
+        <div className="h-3 w-16 rounded bg-slate-200" />
+        <div className="h-5 w-4/5 rounded bg-slate-200" />
+        <div className="h-6 w-24 rounded bg-slate-200" />
+        <div className="h-3 w-32 rounded bg-slate-200" />
+      </div>
+    </div>
   )
 }
 
@@ -347,7 +397,9 @@ function HomePage() {
             </Link>
           </div>
           <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {deals.length > 0 ? (
+            {timeDealQuery.isLoading ? (
+              Array.from({ length: 4 }, (_, index) => <ProductCardSkeleton key={index} />)
+            ) : deals.length > 0 ? (
               deals.map((product) => <ProductCard key={product.id} product={product} />)
             ) : (
               <p className="col-span-full rounded-2xl bg-slate-50 px-5 py-12 text-center text-sm text-slate-500">
@@ -390,6 +442,7 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
     !timeDeals,
   )
   const timeDealQuery = useTimeDeals({ status: 'ACTIVE', size: 10 }, timeDeals)
+  const isLoading = timeDeals ? timeDealQuery.isLoading : productQuery.isLoading
   const source = timeDeals
     ? (timeDealQuery.data?.content.map(timeDealFromApi) ?? [])
     : (productQuery.data?.content.map(productFromApi) ?? [])
@@ -437,7 +490,9 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
           )}
         </div>
         <div className="mt-10 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-          {filtered.length > 0 ? (
+          {isLoading ? (
+            Array.from({ length: 8 }, (_, index) => <ProductCardSkeleton key={index} />)
+          ) : filtered.length > 0 ? (
             filtered.map((product) => <ProductCard key={product.id} product={product} />)
           ) : (
             <p className="col-span-full rounded-2xl bg-slate-50 px-5 py-16 text-center text-sm text-slate-500">
@@ -463,6 +518,7 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
       ? productFromApi(productQuery.data)
       : null
   const [quantity, setQuantity] = useState(1)
+  const countdown = useRemainingTime(product?.endAt)
   const isLoading = productQuery.isLoading || timeDealQuery.isLoading
   const isError = productQuery.isError || timeDealQuery.isError
   if (!product && (isLoading || isError)) {
@@ -530,7 +586,13 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
               {product.timeDeal && (
                 <div className="flex justify-between">
                   <span>딜 종료까지</span>
-                  <strong className="text-orange-600">{product.endsAt}</strong>
+                  <strong className="text-orange-600">
+                    {product.endAt
+                      ? countdown === '0일 00시간 00분 00초'
+                        ? '종료됨'
+                        : countdown
+                      : product.endsAt}
+                  </strong>
                 </div>
               )}
             </div>
