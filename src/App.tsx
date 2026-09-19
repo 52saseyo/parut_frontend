@@ -2077,12 +2077,9 @@ function SellerProductManagement() {
                       )}
                       <button type="button" onClick={() => setConvertProductId(convertProductId === product.productId ? null : product.productId)} className="rounded-lg bg-orange-100 px-3 py-2 text-xs font-bold text-orange-700">타임딜 전환</button>
                       <button type="button" onClick={() => setActionProductId(actionProductId === product.productId ? null : product.productId)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">관리 ▾</button>
-                      {actionProductId === product.productId && <>
-                        <button type="button" onClick={() => { setEditProductId(editProductId === product.productId ? null : product.productId); setActionProductId(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">수정</button>
-                        <button type="button" onClick={() => { if (window.confirm('이 상품을 삭제하시겠습니까?')) mutations.remove.mutate(product.productId); setActionProductId(null) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">삭제</button>
-                      </>}
                     </div></td>
                   </tr>
+                  {actionProductId === product.productId && <tr><td colSpan={5} className="bg-slate-50 px-5 py-3"><div className="flex flex-wrap items-center gap-2"><span className="mr-2 text-xs font-semibold text-slate-500">상품 관리</span><button type="button" onClick={() => { setEditProductId(editProductId === product.productId ? null : product.productId); setActionProductId(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">상품 수정</button><button type="button" onClick={() => { if (window.confirm('이 상품을 삭제하시겠습니까?')) mutations.remove.mutate(product.productId); setActionProductId(null) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">상품 삭제</button><button type="button" onClick={() => setActionProductId(null)} className="ml-auto rounded-lg px-3 py-2 text-xs font-semibold text-slate-500">닫기</button></div></td></tr>}
                   {editProductId === product.productId && <tr><td colSpan={5}><SellerProductEditForm productId={product.productId} onClose={() => setEditProductId(null)} /></td></tr>}
                   {convertProductId === product.productId && (
                     <tr><td colSpan={5} className="bg-orange-50 px-5 py-4">
@@ -2145,17 +2142,58 @@ function SellerTimeDealManagement() {
   return (
     <section className="mt-8 space-y-5">
       <div><p className="text-sm font-bold text-orange-600">TIME DEAL MANAGEMENT</p><h2 className="mt-2 font-bold text-slate-950">타임딜 직접 생성</h2><p className="mt-1 text-sm text-slate-500">일반 상품과 연결하지 않는 독립 타임딜을 생성합니다.</p></div>
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold text-slate-950">내 타임딜 목록</h2>
+          <p className="mt-1 text-xs text-slate-500">생성한 타임딜의 상태와 운영 작업을 확인하는 영역입니다.</p>
+        </div>
+        <div className="p-8 text-center text-sm text-slate-500">
+          <p className="font-semibold text-slate-700">판매자별 타임딜 목록 API를 준비 중입니다.</p>
+          <p className="mt-2">현재 백엔드에는 공개 타임딜 목록만 있어 내 타임딜만 안전하게 표시할 수 없습니다.</p>
+          <Link to="/seller/time-deals/stocks" className="mt-4 inline-block font-bold text-orange-600">타임딜 재고 관리 영역 보기 →</Link>
+        </div>
+      </div>
       <form className="grid gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); mutations.createTimeDeal.mutate({ name: form.name, description: form.description, productGrade: form.productGrade, origin: form.origin, harvestedDate: form.harvestedDate, originalPrice: Number(form.originalPrice), discountRate: Number(form.discountRate), startAt: new Date(form.startAt).toISOString(), endAt: new Date(form.endAt).toISOString(), maxPurchaseQuantity: Number(form.maxPurchaseQuantity), initialQuantity: Number(form.initialQuantity), lowStockThreshold: Number(form.lowStockThreshold) }) }}>
-        <input required value={form.name} onChange={(event) => update('name', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="타임딜 상품명" /><input required value={form.origin} onChange={(event) => update('origin', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="원산지" />
-        <textarea value={form.description} onChange={(event) => update('description', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="설명" /><select value={form.productGrade} onChange={(event) => update('productGrade', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm"><option value="NORMAL">일반 품질</option><option value="UGLY">못난이 상품</option></select>
-        <input required type="date" value={form.harvestedDate} onChange={(event) => update('harvestedDate', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><input required type="number" min="0" value={form.originalPrice} onChange={(event) => update('originalPrice', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="정가" />
-        <input required type="number" min="0" step="0.1" value={form.discountRate} onChange={(event) => update('discountRate', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="할인율 %" /><input required type="number" min="1" value={form.initialQuantity} onChange={(event) => update('initialQuantity', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="초기 재고" />
-        <input required type="number" min="1" value={form.maxPurchaseQuantity} onChange={(event) => update('maxPurchaseQuantity', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="최대 구매 수량" /><input required type="number" min="0" value={form.lowStockThreshold} onChange={(event) => update('lowStockThreshold', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="재고 부족 기준" />
-        <input required type="datetime-local" value={form.startAt} onChange={(event) => update('startAt', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><input required type="datetime-local" value={form.endAt} onChange={(event) => update('endAt', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+        <SellerFormField label="타임딜 상품명" hint="고객에게 표시되는 타임딜 이름"><input required value={form.name} onChange={(event) => update('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 오늘만 못난이 감자" /></SellerFormField>
+        <SellerFormField label="원산지" hint="상품이 생산된 지역 또는 국가"><input required value={form.origin} onChange={(event) => update('origin', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 강원 평창" /></SellerFormField>
+        <SellerFormField label="타임딜 설명" hint="할인 상품의 특징과 고객 안내 사항"><textarea value={form.description} onChange={(event) => update('description', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="타임딜 상품 설명을 입력해주세요." /></SellerFormField>
+        <SellerFormField label="상품 품질"><select value={form.productGrade} onChange={(event) => update('productGrade', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"><option value="NORMAL">일반 품질</option><option value="UGLY">못난이 상품</option></select></SellerFormField>
+        <SellerFormField label="수확일" hint="상품을 수확한 날짜"><input required type="date" value={form.harvestedDate} onChange={(event) => update('harvestedDate', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+        <SellerFormField label="정가" hint="할인 적용 전 원래 상품 가격"><input required type="number" min="0" value={form.originalPrice} onChange={(event) => update('originalPrice', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 15000" /></SellerFormField>
+        <SellerFormField label="할인율" hint="정가에 적용할 할인 비율(%)"><input required type="number" min="0" step="0.1" value={form.discountRate} onChange={(event) => update('discountRate', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 20" /></SellerFormField>
+        <SellerFormField label="초기 타임딜 재고" hint="타임딜 전용으로 배정할 수량"><input required type="number" min="1" value={form.initialQuantity} onChange={(event) => update('initialQuantity', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 50" /></SellerFormField>
+        <SellerFormField label="최대 구매 수량" hint="고객 1명이 구매할 수 있는 최대 수량"><input required type="number" min="1" value={form.maxPurchaseQuantity} onChange={(event) => update('maxPurchaseQuantity', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 3" /></SellerFormField>
+        <SellerFormField label="재고 부족 기준" hint="남은 수량이 이 값 이하이면 마감 임박 표시"><input required type="number" min="0" value={form.lowStockThreshold} onChange={(event) => update('lowStockThreshold', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 5" /></SellerFormField>
+        <SellerFormField label="판매 시작 일시" hint="타임딜이 고객에게 공개되는 시점"><input required type="datetime-local" value={form.startAt} onChange={(event) => update('startAt', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+        <SellerFormField label="판매 종료 일시" hint="타임딜이 자동으로 종료되는 시점"><input required type="datetime-local" value={form.endAt} onChange={(event) => update('endAt', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></SellerFormField>
+        <div className="sm:col-span-2 rounded-lg border border-dashed border-orange-300 bg-white/70 px-4 py-3 text-xs text-slate-600"><strong className="text-slate-800">이미지 등록</strong><p className="mt-1">현재 백엔드의 직접 타임딜 생성 요청에는 이미지 ID 필드와 타임딜 이미지 연결 API가 없습니다. 따라서 이 폼에 파일 선택만 추가하면 업로드 후 연결할 수 없어, 백엔드 이미지 연결 계약이 추가된 뒤 실제 업로드 필드를 연결할 수 있습니다.</p></div>
         {mutations.createTimeDeal.isError && <p className="sm:col-span-2 text-xs text-red-600">타임딜 생성에 실패했습니다. 기간·재고·할인율을 확인해주세요.</p>}
         <button disabled={mutations.createTimeDeal.isPending} className="sm:col-span-2 rounded-lg bg-orange-500 py-2.5 text-sm font-bold text-white disabled:opacity-50">{mutations.createTimeDeal.isPending ? '생성 중...' : '타임딜 생성하기'}</button>
       </form>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">현재 백엔드에는 판매자별 타임딜 목록 조회 API가 없어 생성 기능을 먼저 연결했습니다. 타임딜 목록·수정·중지·삭제·타임딜 전용 재고 조정 화면은 판매자별 조회 API가 추가되면 연결할 수 있습니다.</div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">타임딜 목록·수정·중지·삭제·타임딜 전용 재고 조정은 판매자별 타임딜 목록 API가 추가되면 위 영역에 연결합니다.</div>
+    </section>
+  )
+}
+
+function SellerTimeDealStockManagement() {
+  return (
+    <section className="mt-8 space-y-5">
+      <div>
+        <p className="text-sm font-bold text-orange-600">TIME DEAL STOCK</p>
+        <h2 className="mt-2 font-bold text-slate-950">타임딜 재고 관리</h2>
+        <p className="mt-1 text-sm text-slate-500">일반 상품 재고와 분리된 타임딜 판매 재고를 조정하는 영역입니다.</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h3 className="font-bold text-slate-950">타임딜별 재고 현황</h3>
+          <p className="mt-1 text-xs text-slate-500">판매 가능·예약·판매 완료 수량을 타임딜 단위로 관리합니다.</p>
+        </div>
+        <div className="p-10 text-center text-sm text-slate-500">
+          <p className="font-semibold text-slate-700">타임딜 목록을 불러올 수 없습니다.</p>
+          <p className="mt-2">현재 백엔드에 판매자별 타임딜 목록 조회 API가 없어 재고 대상을 선택할 수 없습니다.</p>
+          <Link to="/seller/time-deals" className="mt-4 inline-block font-bold text-orange-600">타임딜 관리로 이동 →</Link>
+        </div>
+      </div>
     </section>
   )
 }
@@ -2169,6 +2207,7 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
         ['/seller/products', '상품 관리'],
         ['/seller/stocks', '재고 관리'],
         ['/seller/time-deals', '타임딜 관리'],
+        ['/seller/time-deals/stocks', '타임딜 재고 관리'],
         ['/seller/orders', '주문·배송'],
         ['/seller/settlements', '정산'],
       ]
@@ -2251,6 +2290,8 @@ function DashboardPage({
         ? '재고 관리'
         : section === 'time-deals'
           ? '타임딜 관리'
+          : section === 'time-deal-stocks'
+            ? '타임딜 재고 관리'
         : section === 'orders'
           ? '주문·배송 관리'
           : section === 'sellers'
@@ -2315,6 +2356,7 @@ function DashboardPage({
       {seller && section === 'products' && <SellerProductManagement />}
       {seller && section === 'stocks' && <SellerStockManagement />}
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
+      {seller && section === 'time-deal-stocks' && <SellerTimeDealStockManagement />}
       {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4">
@@ -2590,6 +2632,7 @@ function App() {
       <Route path="/seller/products" element={<SellerAccessPage section="products" />} />
       <Route path="/seller/stocks" element={<SellerAccessPage section="stocks" />} />
       <Route path="/seller/time-deals" element={<SellerAccessPage section="time-deals" />} />
+      <Route path="/seller/time-deals/stocks" element={<SellerAccessPage section="time-deal-stocks" />} />
       <Route path="/seller/orders" element={<SellerAccessPage section="orders" />} />
       <Route
         path="/seller/settlements"
