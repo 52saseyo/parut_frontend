@@ -2077,12 +2077,9 @@ function SellerProductManagement() {
                       )}
                       <button type="button" onClick={() => setConvertProductId(convertProductId === product.productId ? null : product.productId)} className="rounded-lg bg-orange-100 px-3 py-2 text-xs font-bold text-orange-700">타임딜 전환</button>
                       <button type="button" onClick={() => setActionProductId(actionProductId === product.productId ? null : product.productId)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">관리 ▾</button>
-                      {actionProductId === product.productId && <>
-                        <button type="button" onClick={() => { setEditProductId(editProductId === product.productId ? null : product.productId); setActionProductId(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">수정</button>
-                        <button type="button" onClick={() => { if (window.confirm('이 상품을 삭제하시겠습니까?')) mutations.remove.mutate(product.productId); setActionProductId(null) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">삭제</button>
-                      </>}
                     </div></td>
                   </tr>
+                  {actionProductId === product.productId && <tr><td colSpan={5} className="bg-slate-50 px-5 py-3"><div className="flex flex-wrap items-center gap-2"><span className="mr-2 text-xs font-semibold text-slate-500">상품 관리</span><button type="button" onClick={() => { setEditProductId(editProductId === product.productId ? null : product.productId); setActionProductId(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">상품 수정</button><button type="button" onClick={() => { if (window.confirm('이 상품을 삭제하시겠습니까?')) mutations.remove.mutate(product.productId); setActionProductId(null) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">상품 삭제</button><button type="button" onClick={() => setActionProductId(null)} className="ml-auto rounded-lg px-3 py-2 text-xs font-semibold text-slate-500">닫기</button></div></td></tr>}
                   {editProductId === product.productId && <tr><td colSpan={5}><SellerProductEditForm productId={product.productId} onClose={() => setEditProductId(null)} /></td></tr>}
                   {convertProductId === product.productId && (
                     <tr><td colSpan={5} className="bg-orange-50 px-5 py-4">
