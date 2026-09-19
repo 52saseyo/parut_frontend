@@ -14,6 +14,8 @@ VITE_API_BASE_URL=http://localhost:8080
 
 타임딜은 일반 상품 API와 분리하여 `GET /api/v1/time-deals?status=ACTIVE&size=10`과 `GET /api/v1/time-deals/{timeDealId}`를 사용합니다. 타임딜 목록·상세의 식별자는 `productId`가 아니라 `timeDealId`입니다. API 응답이 비어 있거나 실패하면 목업 데이터를 노출하지 않고 빈 상태 또는 오류 안내를 표시합니다.
 
+재고 임박 표시는 `availableQuantity <= lowStockThreshold`일 때 노출합니다. 타임딜 응답에는 두 필드가 제공되어 목록·상세에 적용하며, 일반 상품 공개 목록·상세 응답에는 현재 `lowStockThreshold`가 없어 해당 필드가 추가되면 동일한 규칙으로 자동 적용합니다.
+
 ## 요청 규칙
 
 - 공통 Axios 인스턴스는 `src/lib/api.ts`를 사용합니다.
