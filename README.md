@@ -36,3 +36,8 @@ npm run preview  # 프로덕션 빌드 미리보기
 - Frontend: https://github.com/52saseyo/parut_frontend
 - Backend: https://github.com/52saseyo/parut
 - Backend reference branch: `develop`
+
+## Project guidelines
+
+- [Codex guide](./codex.md)
+- [Documentation index](./docs/README.md)
