@@ -110,6 +110,25 @@ const products: Product[] = [
 ]
 
 const money = (value: number) => `${value.toLocaleString('ko-KR')}원`
+const checkoutDraftKey = 'parut.checkout.draft'
+
+type CheckoutState = {
+  productId?: string
+  timeDealId?: string
+  timeDeal?: boolean
+  quantity?: number
+}
+
+function readCheckoutDraft(): CheckoutState | null {
+  const saved = sessionStorage.getItem(checkoutDraftKey)
+  if (!saved) return null
+  try {
+    return JSON.parse(saved) as CheckoutState
+  } catch {
+    sessionStorage.removeItem(checkoutDraftKey)
+    return null
+  }
+}
 
 const categoryMap: Record<string, ApiProduct['category']> = {
   채소: 'VEGETABLE',
@@ -938,12 +957,8 @@ function CheckoutPage() {
   const orderMutation = useCreateOrder()
   const timeDealOrderMutation = useCreateTimeDealOrder()
   const paymentMutation = usePreparePayment()
-  const state = location.state as {
-    productId?: string
-    timeDealId?: string
-    timeDeal?: boolean
-    quantity?: number
-  } | null
+  const locationState = location.state as CheckoutState | null
+  const state = locationState ?? readCheckoutDraft()
   const isTimeDeal = Boolean(state?.timeDeal)
   const isAuthenticated = Boolean(authStorage.getAccessToken())
   const productQuery = useProduct(state?.productId, !isTimeDeal)
@@ -982,6 +997,19 @@ function CheckoutPage() {
     ...recipient,
     recipientName: recipient.recipientName || userQuery.data?.name || '',
   }
+  const serializedRecipient = JSON.stringify(effectiveRecipient)
+
+  useEffect(() => {
+    if (locationState) {
+      sessionStorage.setItem(checkoutDraftKey, JSON.stringify(locationState))
+    }
+  }, [locationState])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      localStorage.setItem('parut.checkout.recipient', serializedRecipient)
+    }
+  }, [isAuthenticated, serializedRecipient])
 
   async function submitOrder() {
     if (!product) return
@@ -1004,6 +1032,7 @@ function CheckoutPage() {
           recipient: effectiveRecipient,
         })
     await paymentMutation.mutateAsync({ orderId: created.orderId, paymentMethod: 'TOSS_PAY' })
+    sessionStorage.removeItem(checkoutDraftKey)
     setApiOrderNo(created.orderNo)
     setSubmitted(true)
   }
