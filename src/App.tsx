@@ -2004,12 +2004,24 @@ function SellerProductManagement() {
                   {convertProductId === product.productId && (
                     <tr><td colSpan={5} className="bg-orange-50 px-5 py-4">
                       <form className="grid gap-2 sm:grid-cols-3" onSubmit={(event) => { event.preventDefault(); mutations.convert.mutate({ productId: product.productId, quantity: Number(convertForm.quantity), discountRate: Number(convertForm.discountRate), startAt: new Date(convertForm.startAt).toISOString(), endAt: new Date(convertForm.endAt).toISOString(), maxPurchaseQuantity: Number(convertForm.maxPurchaseQuantity), lowStockThreshold: Number(convertForm.lowStockThreshold) }, { onSuccess: () => setConvertProductId(null) }) }}>
-                        <input required type="number" min="1" value={convertForm.quantity} onChange={(event) => setConvertForm({ ...convertForm, quantity: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="전환 재고 수량" />
-                        <input required type="number" min="0" step="0.1" value={convertForm.discountRate} onChange={(event) => setConvertForm({ ...convertForm, discountRate: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="할인율 %" />
-                        <input required type="number" min="1" value={convertForm.maxPurchaseQuantity} onChange={(event) => setConvertForm({ ...convertForm, maxPurchaseQuantity: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="최대 구매 수량" />
-                        <input required type="datetime-local" value={convertForm.startAt} onChange={(event) => setConvertForm({ ...convertForm, startAt: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                        <input required type="datetime-local" value={convertForm.endAt} onChange={(event) => setConvertForm({ ...convertForm, endAt: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                        <input required type="number" min="0" value={convertForm.lowStockThreshold} onChange={(event) => setConvertForm({ ...convertForm, lowStockThreshold: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="재고 부족 기준" />
+                        <SellerFormField label="타임딜 전환 수량" hint="일반 상품 재고에서 타임딜로 이동할 수량">
+                          <input required type="number" min="1" value={convertForm.quantity} onChange={(event) => setConvertForm({ ...convertForm, quantity: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 30" />
+                        </SellerFormField>
+                        <SellerFormField label="할인율" hint="일반 상품 가격에 적용할 할인 비율(%)">
+                          <input required type="number" min="0" step="0.1" value={convertForm.discountRate} onChange={(event) => setConvertForm({ ...convertForm, discountRate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 20" />
+                        </SellerFormField>
+                        <SellerFormField label="최대 구매 수량" hint="고객 1명이 구매할 수 있는 최대 수량">
+                          <input required type="number" min="1" value={convertForm.maxPurchaseQuantity} onChange={(event) => setConvertForm({ ...convertForm, maxPurchaseQuantity: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 3" />
+                        </SellerFormField>
+                        <SellerFormField label="판매 시작 일시" hint="타임딜이 고객에게 공개되는 시점">
+                          <input required type="datetime-local" value={convertForm.startAt} onChange={(event) => setConvertForm({ ...convertForm, startAt: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                        </SellerFormField>
+                        <SellerFormField label="판매 종료 일시" hint="타임딜이 자동으로 종료되는 시점">
+                          <input required type="datetime-local" value={convertForm.endAt} onChange={(event) => setConvertForm({ ...convertForm, endAt: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                        </SellerFormField>
+                        <SellerFormField label="재고 부족 기준" hint="남은 수량이 이 값 이하이면 마감 임박 표시">
+                          <input required type="number" min="0" value={convertForm.lowStockThreshold} onChange={(event) => setConvertForm({ ...convertForm, lowStockThreshold: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 5" />
+                        </SellerFormField>
                         <button disabled={mutations.convert.isPending} className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-bold text-white sm:col-span-3">{mutations.convert.isPending ? '전환 중...' : '타임딜 생성하기'}</button>
                       </form>
                     </td></tr>
