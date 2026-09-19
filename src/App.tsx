@@ -975,6 +975,7 @@ function CheckoutPage() {
   })
   const [submitted, setSubmitted] = useState(false)
   const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
   const effectiveRecipient = {
     ...recipient,
     recipientName: recipient.recipientName || userQuery.data?.name || '',
@@ -982,11 +983,17 @@ function CheckoutPage() {
 
   async function submitOrder() {
     if (!product) return
+    setValidationError(null)
+    const linkedProductId = product.productId
+    if (isTimeDeal && !linkedProductId) {
+      setValidationError('타임딜에 연결된 상품 정보를 찾을 수 없어 주문할 수 없습니다.')
+      return
+    }
     localStorage.setItem('parut.checkout.recipient', JSON.stringify(effectiveRecipient))
     const created = isTimeDeal
       ? await timeDealOrderMutation.mutateAsync({
           timeDealId: product.id,
-          productId: product.productId ?? '',
+          productId: linkedProductId as string,
           quantity,
           recipient: effectiveRecipient,
         })
@@ -1168,6 +1175,7 @@ function CheckoutPage() {
                 주문 또는 결제 준비에 실패했습니다. 로그인 상태와 백엔드 응답을 확인해주세요.
               </p>
             )}
+            {validationError && <p className="mt-4 text-xs text-red-300">{validationError}</p>}
             <button
               type="button"
               disabled={orderPending}
