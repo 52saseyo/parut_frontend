@@ -22,6 +22,7 @@
 - [Git 및 작업 흐름](./docs/05-git-workflow.md)
 - [도메인 및 상태 정책](./docs/06-domain-and-status.md)
 - [백엔드 연동 참고](./docs/07-backend-reference.md)
+- [전체 서비스 UI·UX 및 화면 설계](./docs/08-ui-ux-screen-plan.md)
 
 ## 변경 시 문서화
 
