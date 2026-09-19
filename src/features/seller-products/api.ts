@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { apiClient, type ApiResponse } from '../../lib/api'
 
 export type ProductCategory = 'VEGETABLE' | 'FRUIT' | 'GRAIN' | 'ETC'
@@ -149,6 +150,31 @@ export async function updateSellerStock(productId: string, totalQuantity: number
     totalQuantity,
   })
   return response.data.data
+}
+
+export async function uploadProductImage(productId: string, file: File) {
+  const uploadResponse = await apiClient.post<
+    ApiResponse<{ imageKey: string; uploadUrl: string }>
+  >('/api/v1/images/presigned-url', {
+    contentType: file.type,
+    fileSize: file.size,
+  })
+  const { imageKey, uploadUrl } = uploadResponse.data.data
+
+  await axios.put(uploadUrl, file, {
+    headers: { 'Content-Type': file.type },
+  })
+
+  const completeResponse = await apiClient.post<ApiResponse<{ imageId: string; imageUrl: string }>>(
+    '/api/v1/images/complete',
+    { imageKey, originalName: file.name },
+  )
+  const { imageId } = completeResponse.data.data
+
+  await apiClient.post<ApiResponse<null>>(`/api/v1/seller/products/${productId}/images`, {
+    imageId,
+  })
+  return completeResponse.data.data
 }
 
 export async function createTimeDeal(input: TimeDealCreateInput) {

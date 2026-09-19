@@ -1805,6 +1805,26 @@ function productStatusLabel(status: ProductStatus) {
           : '삭제됨'
 }
 
+function SellerFormField({
+  label,
+  hint,
+  children,
+  className = '',
+}: {
+  label: string
+  hint?: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <label className={className}>
+      <span className="block text-xs font-bold text-slate-700">{label}</span>
+      {hint && <span className="mt-1 block text-[11px] text-slate-500">{hint}</span>}
+      <span className="mt-1.5 block">{children}</span>
+    </label>
+  )
+}
+
 function sellerLocalDateTime(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
@@ -1885,24 +1905,47 @@ function SellerProductManagement() {
       {showCreate && (
         <form onSubmit={submitCreate} className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 sm:grid-cols-2">
           <h3 className="sm:col-span-2 font-bold">일반 상품 등록</h3>
-          <input required value={form.name} onChange={(event) => updateForm('name', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="상품명" />
-          <input required value={form.origin} onChange={(event) => updateForm('origin', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="원산지" />
-          <select value={form.category} onChange={(event) => updateForm('category', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+          <SellerFormField label="상품명" hint="고객에게 표시되는 상품 이름">
+            <input required value={form.name} onChange={(event) => updateForm('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 논산 설향 딸기" />
+          </SellerFormField>
+          <SellerFormField label="원산지" hint="상품이 생산된 지역 또는 국가">
+            <input required value={form.origin} onChange={(event) => updateForm('origin', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 충남 논산" />
+          </SellerFormField>
+          <SellerFormField label="상품 카테고리">
+            <select value={form.category} onChange={(event) => updateForm('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             {sellerProductCategories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-          <select value={form.appearanceType} onChange={(event) => updateForm('appearanceType', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            </select>
+          </SellerFormField>
+          <SellerFormField label="외관 유형" hint="못난이 상품 여부를 구분합니다">
+            <select value={form.appearanceType} onChange={(event) => updateForm('appearanceType', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="NORMAL">일반 외관</option>
             <option value="UGLY">못난이 상품</option>
-          </select>
-          <input required type="number" min="0" value={form.price} onChange={(event) => updateForm('price', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="판매 가격" />
-          <input required type="date" value={form.harvestDate} onChange={(event) => updateForm('harvestDate', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <select value={form.saleUnit} onChange={(event) => updateForm('saleUnit', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            </select>
+          </SellerFormField>
+          <SellerFormField label="판매 가격" hint="원 단위의 상품 판매 가격">
+            <input required type="number" min="0" value={form.price} onChange={(event) => updateForm('price', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 12900" />
+          </SellerFormField>
+          <SellerFormField label="수확일" hint="상품을 수확한 날짜">
+            <input required type="date" value={form.harvestDate} onChange={(event) => updateForm('harvestDate', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </SellerFormField>
+          <SellerFormField label="판매 단위" hint="고객 주문 1개가 의미하는 단위">
+            <select value={form.saleUnit} onChange={(event) => updateForm('saleUnit', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="G">g</option><option value="KG">kg</option><option value="EA">개</option><option value="BOX">박스</option>
-          </select>
-          <input required type="number" min="0.01" step="0.01" value={form.unitQuantity} onChange={(event) => updateForm('unitQuantity', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="판매 단위 수량" />
-          <input required type="number" min="0" value={form.totalQuantity} onChange={(event) => updateForm('totalQuantity', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="초기 재고" />
-          <input required type="number" min="0" value={form.lowStockThreshold} onChange={(event) => updateForm('lowStockThreshold', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="재고 부족 기준" />
-          <textarea value={form.description} onChange={(event) => updateForm('description', event.target.value)} className="sm:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="상품 설명" />
+            </select>
+          </SellerFormField>
+          <SellerFormField label="판매 단위 수량" hint="판매 단위 1개에 포함되는 수량">
+            <input required type="number" min="0.01" step="0.01" value={form.unitQuantity} onChange={(event) => updateForm('unitQuantity', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 500" />
+          </SellerFormField>
+          <SellerFormField label="초기 총 재고" hint="등록 시 준비할 전체 재고 수량. 0이면 판매 시작할 수 없습니다.">
+            <input required type="number" min="0" value={form.totalQuantity} onChange={(event) => updateForm('totalQuantity', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 100" />
+          </SellerFormField>
+          <SellerFormField label="재고 부족 기준" hint="남은 수량이 이 값 이하이면 마감 임박으로 표시합니다.">
+            <input required type="number" min="0" value={form.lowStockThreshold} onChange={(event) => updateForm('lowStockThreshold', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="예: 10" />
+          </SellerFormField>
+          <SellerFormField label="상품 설명" hint="상품의 특징과 고객에게 전달할 안내 사항" className="sm:col-span-2">
+            <textarea value={form.description} onChange={(event) => updateForm('description', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="상품 설명을 입력해주세요." />
+          </SellerFormField>
+          <p className="sm:col-span-2 rounded-lg bg-white/70 px-3 py-2 text-xs text-slate-600">판매 시작 전 상품 이미지 등록이 필요합니다. 상품을 먼저 등록한 뒤 상품 목록의 이미지 등록 버튼으로 JPEG·PNG·WEBP 이미지를 업로드해주세요.</p>
           {mutations.create.isError && <p className="sm:col-span-2 text-xs text-red-600">상품 등록에 실패했습니다. 입력값과 판매자 권한을 확인해주세요.</p>}
           <button disabled={mutations.create.isPending} className="sm:col-span-2 rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white disabled:opacity-50">{mutations.create.isPending ? '등록 중...' : '상품 등록하기'}</button>
         </form>
@@ -1934,7 +1977,27 @@ function SellerProductManagement() {
                     <td className="px-5 py-4">{money(product.price)}</td>
                     <td className="px-5 py-4"><StatusBadge tone={product.status === 'ON_SALE' ? 'green' : product.status === 'SOLD_OUT' ? 'red' : 'orange'}>{productStatusLabel(product.status)}</StatusBadge></td>
                     <td className="px-5 py-4"><div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => mutations.updateStatus.mutate({ productId: product.productId, status: product.status === 'ON_SALE' ? 'SUSPENDED' : 'ON_SALE' })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">{product.status === 'ON_SALE' ? '판매 중지' : '판매 시작'}</button>
+                      <label className="cursor-pointer rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">
+                        {mutations.uploadImage.isPending ? '업로드 중...' : '이미지 등록'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          disabled={mutations.uploadImage.isPending}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            if (file) mutations.uploadImage.mutate({ productId: product.productId, file })
+                            event.target.value = ''
+                          }}
+                        />
+                      </label>
+                      {product.status === 'ON_SALE' ? (
+                        <button type="button" onClick={() => mutations.updateStatus.mutate({ productId: product.productId, status: 'SUSPENDED' })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">판매 중지</button>
+                      ) : product.status === 'DRAFT' || product.status === 'SUSPENDED' ? (
+                        <button type="button" onClick={() => mutations.updateStatus.mutate({ productId: product.productId, status: 'ON_SALE' })} className="rounded-lg bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700">판매 시작</button>
+                      ) : (
+                        <span title="품절 상품은 재고를 보충한 뒤 판매 재개 API가 필요합니다." className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-400">판매 시작 불가</span>
+                      )}
                       <button type="button" onClick={() => setConvertProductId(convertProductId === product.productId ? null : product.productId)} className="rounded-lg bg-orange-100 px-3 py-2 text-xs font-bold text-orange-700">타임딜 전환</button>
                     </div></td>
                   </tr>
@@ -1957,6 +2020,8 @@ function SellerProductManagement() {
           </table>
         </div>
       )}
+      {mutations.uploadImage.isError && <p className="text-xs text-red-600">이미지 등록에 실패했습니다. JPEG·PNG·WEBP 형식의 10MB 이하 파일인지 확인해주세요.</p>}
+      {mutations.updateStatus.isError && <p className="text-xs text-orange-700">판매 시작 조건을 확인해주세요. 상품 이미지가 등록되어 있고, 판매 가능한 재고가 1개 이상이며, 상품 상태가 판매 준비 또는 판매 중지여야 합니다.</p>}
     </section>
   )
 }
