@@ -6,6 +6,12 @@ import { useMyInfo } from './features/auth/hooks'
 import { useProcessSellerApplication, useSellerApplications } from './features/admin/hooks'
 import type { SellerApplication, SellerStatus } from './features/admin/api'
 import {
+  applyAsSeller,
+  sellerLogin,
+  type SellerApplicationRequest,
+} from './features/sellers/api'
+import { useMySellerApplicationStatus } from './features/sellers/hooks'
+import {
   useCreateOrder,
   useCreateTimeDealOrder,
   useConfirmPayment,
@@ -1486,12 +1492,275 @@ function AuthPage() {
           >
             {isSignup || isAdminLogin ? '로그인으로 돌아가기' : '회원가입'}
           </Link>
-          <Link to={isAdminLogin ? '/login' : '/admin/login'} className="hover:text-emerald-700">
-            {isAdminLogin ? '일반 로그인' : '관리자 로그인'}
+          <Link
+            to={isAdminLogin ? '/login' : isSignup ? '/seller/login' : '/admin/login'}
+            className="hover:text-emerald-700"
+          >
+            {isAdminLogin ? '일반 로그인' : isSignup ? '판매자 로그인' : '관리자 로그인'}
           </Link>
         </div>
       </div>
     </div>
+  )
+}
+
+function SellerLoginPage() {
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ username: '', password: '' })
+  const mutation = useMutation({
+    mutationFn: () => sellerLogin(form),
+    onSuccess: () => navigate('/seller'),
+  })
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-emerald-50 px-5">
+      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+        <Link to="/" className="text-xl font-black text-emerald-700">
+          parut<span className="text-orange-500">.</span>
+        </Link>
+        <p className="mt-10 text-sm font-bold text-emerald-700">SELLER CENTER</p>
+        <h1 className="mt-2 text-3xl font-black">판매자 로그인</h1>
+        <p className="mt-2 text-sm text-slate-500">승인된 판매자 계정으로 로그인하세요.</p>
+        <form
+          className="mt-8 space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            mutation.mutate()
+          }}
+        >
+          <input
+            value={form.username}
+            onChange={(event) => setForm({ ...form, username: event.target.value })}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-emerald-500"
+            placeholder="판매자 아이디"
+          />
+          <input
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3.5 text-sm outline-none focus:border-emerald-500"
+            placeholder="비밀번호"
+            type="password"
+          />
+          {mutation.isError && (
+            <p className="text-xs text-red-600">
+              판매자 로그인에 실패했습니다. 승인된 판매자 계정인지 확인해주세요.
+            </p>
+          )}
+          <button
+            disabled={mutation.isPending}
+            className="w-full rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mutation.isPending ? '로그인 중...' : '판매자 로그인'}
+          </button>
+        </form>
+        <div className="mt-6 flex justify-between text-xs text-slate-500">
+          <Link to="/login" className="hover:text-emerald-700">
+            일반 로그인
+          </Link>
+          <Link to="/seller/apply" className="font-semibold text-emerald-700">
+            판매자 신청하기
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const emptySellerApplication: SellerApplicationRequest = {
+  loginId: '',
+  password: '',
+  companyName: '',
+  bizRegNo: '',
+  repName: '',
+  bizAddress: '',
+  managerName: '',
+  managerPhone: '',
+  managerEmail: '',
+  slackId: '',
+}
+
+function SellerApplyPage() {
+  const navigate = useNavigate()
+  const [form, setForm] = useState(emptySellerApplication)
+  const mutation = useMutation({
+    mutationFn: () => applyAsSeller(form),
+    onSuccess: () => navigate('/seller/login'),
+  })
+  const update = (field: keyof SellerApplicationRequest, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+  const fields: Array<[
+    keyof SellerApplicationRequest,
+    string,
+    string,
+    'text' | 'password' | 'email',
+  ]> = [
+    ['loginId', '판매자 로그인 아이디', '판매자 로그인에 사용할 아이디', 'text'],
+    ['password', '비밀번호', '비밀번호', 'password'],
+    ['companyName', '업체명', '업체명', 'text'],
+    ['bizRegNo', '사업자등록번호', '사업자등록번호', 'text'],
+    ['repName', '대표자명', '대표자명', 'text'],
+    ['bizAddress', '사업장 주소', '사업장 주소', 'text'],
+    ['managerName', '담당자명', '담당자명', 'text'],
+    ['managerPhone', '담당자 전화번호', '담당자 전화번호', 'text'],
+    ['managerEmail', '담당자 이메일', '담당자 이메일', 'email'],
+    ['slackId', 'Slack ID', '선택 입력', 'text'],
+  ]
+
+  return (
+    <div className="min-h-screen bg-emerald-50 px-5 py-10 sm:py-16">
+      <div className="mx-auto max-w-2xl rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+        <Link to="/" className="text-xl font-black text-emerald-700">
+          parut<span className="text-orange-500">.</span>
+        </Link>
+        <p className="mt-10 text-sm font-bold text-emerald-700">SELLER APPLICATION</p>
+        <h1 className="mt-2 text-3xl font-black">판매자 신청</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          신청 후 관리자 승인까지 완료되면 판매자 센터를 이용할 수 있습니다.
+        </p>
+        <form
+          className="mt-8 grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            mutation.mutate()
+          }}
+        >
+          {fields.map(([field, label, placeholder, type]) => (
+            <label key={field} className={field === 'bizAddress' ? 'sm:col-span-2' : ''}>
+              <span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span>
+              <input
+                required={field !== 'slackId'}
+                value={form[field] ?? ''}
+                onChange={(event) => update(field, event.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                placeholder={placeholder}
+                type={type}
+              />
+            </label>
+          ))}
+          {mutation.isError && (
+            <p className="sm:col-span-2 text-xs text-red-600">
+              판매자 신청에 실패했습니다. 이미 사용 중인 아이디인지 입력값을 확인해주세요.
+            </p>
+          )}
+          <button
+            disabled={mutation.isPending}
+            className="sm:col-span-2 rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mutation.isPending ? '신청 중...' : '판매자 신청하기'}
+          </button>
+        </form>
+        <div className="mt-6 text-center text-xs text-slate-500">
+          이미 신청하셨다면{' '}
+          <Link to="/seller/login" className="font-semibold text-emerald-700">
+            판매자 로그인
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SellerAccessPage({ section = 'dashboard' }: { section?: string }) {
+  const role = authStorage.getRole()
+  const hasToken = Boolean(authStorage.getAccessToken())
+  const statusQuery = useMySellerApplicationStatus(
+    hasToken && (role === 'PENDING_SELLER' || role === 'SELLER'),
+  )
+
+  if (role === 'SELLER') return <DashboardPage role="seller" section={section} />
+
+  if (!hasToken) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <p className="text-sm font-bold text-emerald-700">SELLER CENTER</p>
+          <h1 className="mt-3 text-3xl font-black">판매자 로그인이 필요합니다</h1>
+          <p className="mt-3 text-sm text-slate-500">
+            판매자 센터를 이용하려면 승인된 판매자 계정으로 로그인해주세요.
+          </p>
+          <div className="mt-8 flex justify-center gap-3">
+            <Link to="/seller/login" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+              판매자 로그인
+            </Link>
+            <Link to="/seller/apply" className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">
+              판매자 신청
+            </Link>
+          </div>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  if (role === 'CUSTOMER') {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <p className="text-sm font-bold text-emerald-700">SELLER CENTER</p>
+          <h1 className="mt-3 text-3xl font-black">판매자 신청 후 이용할 수 있습니다</h1>
+          <p className="mt-3 text-sm text-slate-500">
+            현재 일반 고객으로 로그인되어 있습니다. 판매자 신청과 관리자 승인이 완료되면 판매자 센터를 이용할 수 있습니다.
+          </p>
+          <Link to="/seller/apply" className="mt-8 inline-block rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+            판매자 신청하기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  if (role === 'ADMIN') {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <h1 className="text-3xl font-black">관리자 계정으로 로그인되어 있습니다</h1>
+          <p className="mt-3 text-sm text-slate-500">판매자 기능은 승인된 판매자 계정으로 이용해주세요.</p>
+          <Link to="/admin" className="mt-8 inline-block rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white">
+            관리자 콘솔로 이동
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  if (statusQuery.isPending) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <span className="mx-auto block h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" />
+          <p className="mt-4 text-sm text-slate-500">판매자 신청 상태를 확인하는 중입니다.</p>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  const status = statusQuery.data?.status
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+        <StatusBadge tone={status === 'REJECTED' ? 'red' : 'orange'}>
+          {status === 'REJECTED' ? '신청 반려' : '승인 대기'}
+        </StatusBadge>
+        <h1 className="mt-4 text-3xl font-black">
+          {status === 'REJECTED' ? '판매자 신청이 반려되었습니다' : '판매자 승인 대기 중입니다'}
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">
+          {status === 'REJECTED'
+            ? statusQuery.data?.rejectReason || '반려 사유를 확인한 뒤 다시 신청해주세요.'
+            : '관리자 승인 후 판매자 로그인으로 다시 접속해주세요.'}
+        </p>
+        <div className="mt-8 flex justify-center gap-3">
+          {status === 'REJECTED' && (
+            <Link to="/seller/apply" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+              다시 신청하기
+            </Link>
+          )}
+          <Link to="/seller/login" className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">
+            판매자 로그인
+          </Link>
+        </div>
+      </main>
+    </PublicLayout>
   )
 }
 
@@ -1916,13 +2185,15 @@ function App() {
       <Route path="/login" element={<AuthPage />} />
       <Route path="/signup" element={<AuthPage />} />
       <Route path="/admin/login" element={<AuthPage />} />
-      <Route path="/seller" element={<DashboardPage role="seller" />} />
-      <Route path="/seller/products" element={<DashboardPage role="seller" section="products" />} />
-      <Route path="/seller/stocks" element={<DashboardPage role="seller" section="stocks" />} />
-      <Route path="/seller/orders" element={<DashboardPage role="seller" section="orders" />} />
+      <Route path="/seller/login" element={<SellerLoginPage />} />
+      <Route path="/seller/apply" element={<SellerApplyPage />} />
+      <Route path="/seller" element={<SellerAccessPage />} />
+      <Route path="/seller/products" element={<SellerAccessPage section="products" />} />
+      <Route path="/seller/stocks" element={<SellerAccessPage section="stocks" />} />
+      <Route path="/seller/orders" element={<SellerAccessPage section="orders" />} />
       <Route
         path="/seller/settlements"
-        element={<DashboardPage role="seller" section="settlements" />}
+        element={<SellerAccessPage section="settlements" />}
       />
       <Route path="/admin" element={<DashboardPage role="admin" />} />
       <Route path="/admin/sellers" element={<DashboardPage role="admin" section="sellers" />} />

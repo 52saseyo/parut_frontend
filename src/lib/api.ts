@@ -7,6 +7,16 @@ const REFRESH_TOKEN_KEY = 'parut.refreshToken'
 export const authStorage = {
   getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
   getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY),
+  getRole: () => {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!token) return null
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      return typeof payload.role === 'string' ? payload.role : null
+    } catch {
+      return null
+    }
+  },
   setTokens: (accessToken: string, refreshToken: string) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
