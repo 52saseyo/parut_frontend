@@ -885,6 +885,28 @@ function OrderDetailPage() {
   const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
   const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
+  if (orderQuery.isError) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-28 text-center">
+          <div className="text-5xl">📦</div>
+          <h1 className="mt-6 text-2xl font-black text-slate-950">
+            주문 정보를 조회할 수 없습니다
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            현재 주문 내역에 표시된 샘플 주문은 실제 백엔드 주문번호가 아니어서 상세 조회를 지원하지
+            않습니다.
+          </p>
+          <Link
+            to="/orders"
+            className="mt-7 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white"
+          >
+            주문 내역으로 돌아가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
   return (
     <PublicLayout>
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
@@ -898,11 +920,6 @@ function OrderDetailPage() {
           </div>
           <StatusBadge tone={orderQuery.data ? 'green' : 'orange'}>{displayStatus}</StatusBadge>
         </div>
-        {orderQuery.isError && (
-          <p className="mt-4 text-xs text-orange-600">
-            주문 API 응답이 없어 임시 주문 상세를 표시하고 있습니다.
-          </p>
-        )}
         <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]">
           <section className="rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="font-bold">주문 상품</h2>
@@ -978,8 +995,17 @@ function OrderDetailPage() {
               }
               className="mt-7 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {refundMutation.isPending ? '환불 요청 중...' : '환불 요청'}
+              {refundMutation.isPending
+                ? '환불 요청 중...'
+                : firstOrderItem?.refundable === false
+                  ? '환불 불가'
+                  : '환불 요청'}
             </button>
+            {!canRequestRefund && !refundMutation.isPending && (
+              <p className="mt-3 text-xs text-slate-400">
+                환불 가능한 주문 상품에서만 요청할 수 있습니다.
+              </p>
+            )}
             {refundMutation.isSuccess && (
               <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
             )}
