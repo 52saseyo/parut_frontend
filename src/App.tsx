@@ -242,7 +242,7 @@ function ProductVisual({
         <img
           src={product.imageUrl ?? undefined}
           alt={product.name}
-          className="h-full w-full object-cover"
+          className={`h-full w-full ${compact ? 'object-contain p-1' : 'object-cover'}`}
           onError={() => setFailedImageUrl(product.imageUrl ?? null)}
         />
       ) : (
