@@ -70,7 +70,7 @@ export function useSellerProductMutations() {
     updateStock: useMutation({ mutationFn: ({ productId, totalQuantity }: { productId: string; totalQuantity: number }) => updateSellerStock(productId, totalQuantity), onSuccess: invalidate }),
     uploadImage: useMutation({ mutationFn: ({ productId, file }: { productId: string; file: File }) => uploadProductImage(productId, file), onSuccess: invalidate }),
     createTimeDeal: useMutation({ mutationFn: (input: TimeDealCreateInput) => createTimeDeal(input), onSuccess: invalidate }),
-    createTimeDealWithImage: useMutation({ mutationFn: ({ input, file }: { input: TimeDealCreateInput; file: File }) => createTimeDealWithImage(input, file), onSuccess: invalidate }),
+    createTimeDealWithImage: useMutation({ mutationFn: ({ input, file }: { input: TimeDealCreateInput; file?: File }) => createTimeDealWithImage(input, file), onSuccess: invalidate }),
     convert: useMutation({ mutationFn: (input: TimeDealConvertInput) => convertProductToTimeDeal(input), onSuccess: invalidate }),
     adjustTimeDealStock: useMutation({ mutationFn: ({ timeDealId, quantity }: { timeDealId: string; quantity: number }) => adjustTimeDealStock(timeDealId, quantity), onSuccess: invalidate }),
   }
