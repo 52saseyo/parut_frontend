@@ -1825,6 +1825,22 @@ function SellerFormField({
   )
 }
 
+function SellerActionOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-5 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="작업 진행 중">
+      <div className="flex min-w-[220px] flex-col items-center rounded-2xl bg-white px-8 py-7 text-center shadow-2xl">
+        <span className="h-9 w-9 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500" aria-hidden="true" />
+        <p className="mt-4 text-sm font-bold text-slate-900">요청을 처리하고 있습니다</p>
+        <p className="mt-1 text-xs text-slate-500">완료될 때까지 잠시만 기다려주세요.</p>
+      </div>
+    </div>
+  )
+}
+
+function sellerMutationPending(mutations: Record<string, { isPending: boolean }>) {
+  return Object.values(mutations).some((mutation) => mutation.isPending)
+}
+
 function sellerLocalDateTime(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
@@ -1889,6 +1905,7 @@ function SellerProductEditForm({ productId, onClose }: { productId: string; onCl
         }, { onSuccess: onClose })
       }}
     >
+      {sellerMutationPending(mutations) && <SellerActionOverlay />}
       <div className="flex items-center justify-between sm:col-span-2">
         <h4 className="font-bold">상품 정보 수정</h4>
         <button type="button" onClick={onClose} className="text-xs font-semibold text-slate-500">닫기</button>
@@ -1966,6 +1983,7 @@ function SellerProductManagement() {
 
   return (
     <section className="mt-8 space-y-4">
+      {sellerMutationPending(mutations) && <SellerActionOverlay />}
       {successMessage && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{successMessage}</div>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -2128,6 +2146,7 @@ function SellerStockManagement() {
   const stocks = stocksQuery.data?.content ?? []
   return (
     <section className="mt-8">
+      {sellerMutationPending(mutations) && <SellerActionOverlay />}
       <div><h2 className="font-bold text-slate-950">일반 상품 재고 관리</h2><p className="mt-1 text-sm text-slate-500">일반 상품의 총 재고를 수정합니다. 타임딜 재고는 타임딜별 재고 관리에서 별도로 조정합니다.</p></div>
       {stocksQuery.isPending && <div className="mt-4 h-48 animate-pulse rounded-2xl bg-slate-200" />}
       {stocksQuery.isError && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">재고 목록을 불러오지 못했습니다.</div>}
@@ -2146,6 +2165,7 @@ function SellerTimeDealManagement() {
   const update = (field: string, value: string) => setForm((current) => ({ ...current, [field]: value }))
   return (
     <section className="mt-8 space-y-5">
+      {sellerMutationPending(mutations) && <SellerActionOverlay />}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-orange-600">TIME DEAL MANAGEMENT</p>
