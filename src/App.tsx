@@ -482,26 +482,26 @@ function HomePage() {
     <PublicLayout>
       <main>
         <section className="mx-auto max-w-7xl px-5 pb-16 pt-8 sm:px-8 lg:pb-24 lg:pt-12">
-          <div className="overflow-hidden rounded-[2rem] bg-emerald-50 shadow-sm ring-1 ring-emerald-900/5">
-            <img
-              src="/images/parut.png"
-              alt="파릇 신선식품 타임딜 서비스 소개"
-              className="block h-auto w-full"
-            />
-          </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+          <div
+            className="relative h-64 overflow-hidden rounded-[2rem] bg-emerald-50 bg-cover bg-center shadow-sm ring-1 ring-emerald-900/5 sm:h-80 lg:h-[22rem]"
+            style={{ backgroundImage: "url('/images/parut.png')" }}
+            role="img"
+            aria-label="파릇 신선식품 타임딜 서비스 소개"
+          >
+            <div className="absolute inset-x-0 bottom-0 flex flex-wrap justify-end gap-2 bg-gradient-to-t from-slate-950/35 to-transparent px-4 pb-4 pt-12 sm:px-6 sm:pb-6">
             <Link
               to="/products"
-              className="rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 hover:bg-emerald-800"
+              className="rounded-xl bg-emerald-700/95 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/20 hover:bg-emerald-800"
             >
               상품 둘러보기
             </Link>
             <Link
               to="/time-deals"
-              className="rounded-xl bg-orange-100 px-5 py-3.5 text-sm font-bold text-orange-700 hover:bg-orange-200"
+              className="rounded-xl bg-white/95 px-4 py-2.5 text-sm font-bold text-orange-700 hover:bg-white"
             >
               마감 임박 타임딜
             </Link>
+            </div>
           </div>
         </section>
         <section className="mx-auto max-w-7xl px-5 sm:px-8">
