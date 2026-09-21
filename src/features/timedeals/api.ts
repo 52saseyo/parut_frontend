@@ -2,6 +2,7 @@ import { apiClient, type ApiResponse } from '../../lib/api'
 import type { CursorResponse } from '../products/api'
 
 export type TimeDealStatus = 'SCHEDULED' | 'ACTIVE' | 'ENDED' | 'STOPPED'
+export type TimeDealListStatus = Extract<TimeDealStatus, 'SCHEDULED' | 'ACTIVE'>
 export type TimeDealProductGrade = 'NORMAL' | 'UGLY'
 
 export type ApiTimeDeal = {
@@ -30,7 +31,7 @@ export type ApiTimeDeal = {
 }
 
 export type TimeDealSearchParams = {
-  status?: TimeDealStatus
+  status?: TimeDealListStatus
   cursor?: string
   cursorId?: string
   size?: number

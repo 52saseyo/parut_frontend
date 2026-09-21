@@ -23,7 +23,7 @@ import {
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useRequestRefund } from './features/refunds/hooks'
-import type { ApiTimeDeal } from './features/timedeals/api'
+import type { ApiTimeDeal, TimeDealListStatus, TimeDealStatus } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 import { authStorage } from './lib/api'
 
@@ -43,7 +43,9 @@ type Product = {
   imageUrl?: string | null
   timeDeal?: boolean
   endsAt?: string
+  startAt?: string
   endAt?: string
+  timeDealStatus?: TimeDealStatus
 }
 
 const products: Product[] = [
@@ -201,7 +203,9 @@ function timeDealFromApi(timeDeal: ApiTimeDeal): Product {
         ? 'from-orange-200 to-amber-100'
         : 'from-rose-200 to-red-100',
     timeDeal: true,
+    startAt: timeDeal.startAt,
     endAt: timeDeal.endAt,
+    timeDealStatus: timeDeal.status,
   }
 }
 
@@ -308,7 +312,8 @@ function ProductVisual({
 }
 
 function ProductCard({ product }: { product: Product }) {
-  const countdown = useRemainingTime(product.endAt)
+  const isScheduledTimeDeal = product.timeDealStatus === 'SCHEDULED'
+  const countdown = useRemainingTime(isScheduledTimeDeal ? product.startAt : product.endAt)
   return (
     <Link
       to={`${product.timeDeal ? '/time-deals' : '/products'}/${product.id}`}
@@ -320,10 +325,10 @@ function ProductCard({ product }: { product: Product }) {
           <p className="text-xs font-medium text-slate-500">{product.category}</p>
           {product.timeDeal && (
             <span className="text-xs font-bold text-orange-600">
-              {product.endAt
+              {(isScheduledTimeDeal ? product.startAt : product.endAt)
                 ? countdown === '0일 00시간 00분 00초'
-                  ? '종료됨'
-                  : countdown
+                  ? isScheduledTimeDeal ? '오픈됨' : '종료됨'
+                  : isScheduledTimeDeal ? `오픈까지 ${countdown}` : countdown
                 : product.endsAt}
             </span>
           )}
@@ -580,6 +585,7 @@ function HomePage() {
 
 function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
   const [category, setCategory] = useState('전체')
+  const [timeDealStatus, setTimeDealStatus] = useState<TimeDealListStatus>('ACTIVE')
   const [keywordInput, setKeywordInput] = useState('')
   const [keyword, setKeyword] = useState('')
   const categories = ['전체', '채소', '과일', '곡물']
@@ -591,7 +597,7 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
     },
     !timeDeals,
   )
-  const timeDealQuery = useTimeDeals({ status: 'ACTIVE', size: 10 }, timeDeals)
+  const timeDealQuery = useTimeDeals({ status: timeDealStatus, size: 10 }, timeDeals)
   const isLoading = timeDeals ? timeDealQuery.isLoading : productQuery.isLoading
   const source = timeDeals
     ? (timeDealQuery.data?.content.map(timeDealFromApi) ?? [])
@@ -646,7 +652,23 @@ function ProductsPage({ timeDeals = false }: { timeDeals?: boolean }) {
               </p>
             )}
           </div>
-          {!timeDeals && (
+          {timeDeals ? (
+            <div className="flex flex-wrap gap-2" aria-label="타임딜 상태 필터">
+              {([
+                ['ACTIVE', '판매중'],
+                ['SCHEDULED', '오픈 예정'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTimeDealStatus(value)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${timeDealStatus === value ? 'bg-orange-500 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-orange-300'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
             <div className="flex flex-wrap gap-2">
               {categories.map((item) => (
                 <button
@@ -690,7 +712,10 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
       ? productFromApi(productQuery.data)
       : null
   const [quantity, setQuantity] = useState(1)
-  const countdown = useRemainingTime(product?.endAt)
+  const isScheduledTimeDeal = product?.timeDealStatus === 'SCHEDULED'
+  const countdown = useRemainingTime(
+    isScheduledTimeDeal ? product?.startAt : product?.endAt,
+  )
   const isAuthenticated = Boolean(authStorage.getAccessToken())
   const isLoading = productQuery.isLoading || timeDealQuery.isLoading
   const isError = productQuery.isError || timeDealQuery.isError
@@ -735,8 +760,8 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
               </p>
             )}
             <div className="flex items-center gap-2">
-              <StatusBadge tone={product.stock > 0 ? 'green' : 'red'}>
-                {product.stock > 0 ? '판매 중' : '품절'}
+              <StatusBadge tone={isScheduledTimeDeal ? 'orange' : product.stock > 0 ? 'green' : 'red'}>
+                {isScheduledTimeDeal ? '오픈 예정' : product.stock > 0 ? '판매 중' : '품절'}
               </StatusBadge>
               {product.timeDeal && <StatusBadge tone="orange">타임딜</StatusBadge>}
               {isLowStock(product) && (
@@ -768,12 +793,12 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
               </div>
               {product.timeDeal && (
                 <div className="flex justify-between">
-                  <span>딜 종료까지</span>
+                  <span>{isScheduledTimeDeal ? '딜 오픈까지' : '딜 종료까지'}</span>
                   <strong className="text-orange-600">
-                    {product.endAt
+                    {(isScheduledTimeDeal ? product.startAt : product.endAt)
                       ? countdown === '0일 00시간 00분 00초'
-                        ? '종료됨'
-                        : countdown
+                        ? isScheduledTimeDeal ? '오픈됨' : '종료됨'
+                        : isScheduledTimeDeal ? `오픈까지 ${countdown}` : countdown
                       : product.endsAt}
                   </strong>
                 </div>
@@ -784,16 +809,18 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  disabled={isScheduledTimeDeal}
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="h-8 w-8 rounded-lg bg-white text-lg ring-1 ring-slate-200"
+                  className="h-8 w-8 rounded-lg bg-white text-lg ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   −
                 </button>
                 <span className="w-5 text-center font-bold">{quantity}</span>
                 <button
                   type="button"
+                  disabled={isScheduledTimeDeal}
                   onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                  className="h-8 w-8 rounded-lg bg-white text-lg ring-1 ring-slate-200"
+                  className="h-8 w-8 rounded-lg bg-white text-lg ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   +
                 </button>
@@ -801,6 +828,7 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
             </div>
             <button
               type="button"
+              disabled={isScheduledTimeDeal}
               onClick={() => {
                 if (!isAuthenticated) {
                   navigate('/login')
@@ -815,13 +843,19 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
                   },
                 })
               }}
-              className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 text-sm font-bold text-white hover:bg-emerald-800"
+              className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:hover:bg-slate-300"
             >
-              {isAuthenticated
+              {isScheduledTimeDeal
+                ? '아직 구매할 수 없습니다'
+                : isAuthenticated
                 ? `${money(product.price * quantity)} 주문하기`
                 : '로그인 후 주문하기'}
             </button>
-            {!isAuthenticated && (
+            {isScheduledTimeDeal ? (
+              <p className="mt-3 text-center text-xs text-orange-600">
+                오픈 예정 상품입니다. 오픈 시간 이후 구매할 수 있습니다.
+              </p>
+            ) : !isAuthenticated && (
               <p className="mt-3 text-center text-xs text-slate-500">
                 주문하려면 로그인이 필요합니다.
               </p>
