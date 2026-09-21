@@ -12,6 +12,7 @@ export type SellerProductListItem = {
   category: ProductCategory
   price: number
   status: ProductStatus
+  imageUrl?: string | null
 }
 
 export type SellerProductDetail = SellerProductListItem & {
@@ -82,6 +83,61 @@ export type TimeDealConvertInput = {
   endAt: string
   maxPurchaseQuantity: number
   lowStockThreshold: number
+}
+
+export type SellerTimeDeal = {
+  timeDealId: string
+  productId: string | null
+  sellerId: string
+  imageUrl: string | null
+  name: string
+  description: string
+  productGrade: 'NORMAL' | 'UGLY'
+  origin: string
+  harvestedDate: string
+  originalPrice: number
+  discountRate: number
+  dealPrice: number
+  startAt: string
+  endAt: string
+  maxPurchaseQuantity: number
+  status: 'SCHEDULED' | 'ACTIVE' | 'ENDED' | 'STOPPED'
+  stock: {
+    availableQuantity: number
+    reservedQuantity: number
+    soldQuantity: number
+    lowStockThreshold: number
+  }
+}
+
+export type SellerTimeDealUpdateInput = Partial<
+  Pick<
+    TimeDealCreateInput,
+    | 'name'
+    | 'description'
+    | 'productGrade'
+    | 'origin'
+    | 'harvestedDate'
+    | 'originalPrice'
+    | 'discountRate'
+    | 'startAt'
+    | 'endAt'
+    | 'maxPurchaseQuantity'
+  >
+>
+
+export type SellerTimeDealStock = {
+  timeDealId: string
+  availableQuantity: number
+  reservedQuantity: number
+  soldQuantity: number
+  lowStockThreshold: number
+}
+
+export type SellerTimeDealCursorParams = {
+  cursor?: string
+  cursorId?: string
+  size?: 10 | 30 | 50
 }
 
 export async function getSellerProducts(params: {
@@ -187,7 +243,7 @@ export async function uploadImage(file: File) {
 
 export async function uploadTimeDealImage(timeDealId: string, file: File) {
   const image = await uploadImage(file)
-  await apiClient.post<ApiResponse<null>>(`/api/v1/time-deals/${timeDealId}/images`, {
+  await apiClient.post<ApiResponse<null>>(`/api/v1/time-deals/seller/${timeDealId}/images`, {
     imageId: image.imageId,
   })
   return image
@@ -195,7 +251,7 @@ export async function uploadTimeDealImage(timeDealId: string, file: File) {
 
 export async function createTimeDeal(input: TimeDealCreateInput) {
   const response = await apiClient.post<ApiResponse<{ timeDealId: string; status: string }>>(
-    '/api/v1/time-deals',
+    '/api/v1/time-deals/seller',
     input,
   )
   return response.data.data
@@ -209,7 +265,7 @@ export async function createTimeDealWithImage(input: TimeDealCreateInput, file?:
 
 export async function convertProductToTimeDeal(input: TimeDealConvertInput) {
   const response = await apiClient.post<ApiResponse<{ timeDealId: string; productId: string; status: string }>>(
-    '/api/v1/time-deals/conversions',
+    '/api/v1/time-deals/seller/conversions',
     input,
   )
   return response.data.data
@@ -217,8 +273,55 @@ export async function convertProductToTimeDeal(input: TimeDealConvertInput) {
 
 export async function adjustTimeDealStock(timeDealId: string, quantity: number) {
   const response = await apiClient.patch<ApiResponse<unknown>>(
-    `/api/v1/time-deals/${timeDealId}/stock`,
+    `/api/v1/time-deals/seller/${timeDealId}/stock`,
     { quantity },
+  )
+  return response.data.data
+}
+
+export async function getSellerTimeDeals(params: SellerTimeDealCursorParams = {}) {
+  const response = await apiClient.get<
+    ApiResponse<import('../products/api').CursorResponse<SellerTimeDeal>>
+  >('/api/v1/time-deals/seller', { params: { size: 10, ...params } })
+  return response.data.data
+}
+
+export async function updateSellerTimeDeal(
+  timeDealId: string,
+  input: SellerTimeDealUpdateInput,
+) {
+  const response = await apiClient.patch<
+    ApiResponse<{ timeDealId: string; status: SellerTimeDeal['status']; updatedAt: string }>
+  >(`/api/v1/time-deals/seller/${timeDealId}`, input)
+  return response.data.data
+}
+
+export async function deleteSellerTimeDeal(timeDealId: string) {
+  await apiClient.delete<ApiResponse<null>>(`/api/v1/time-deals/seller/${timeDealId}`)
+}
+
+export async function stopSellerTimeDeal(timeDealId: string) {
+  const response = await apiClient.patch<
+    ApiResponse<{ timeDealId: string; status: 'STOPPED' }>
+  >(`/api/v1/time-deals/seller/${timeDealId}/stop`)
+  return response.data.data
+}
+
+export async function getSellerTimeDealStock(timeDealId: string) {
+  const response = await apiClient.get<ApiResponse<SellerTimeDealStock>>(
+    `/api/v1/time-deals/seller/${timeDealId}/stock`,
+  )
+  return response.data.data
+}
+
+export async function transferTimeDealStock(
+  timeDealId: string,
+  productId: string,
+  quantity: number,
+) {
+  const response = await apiClient.post<ApiResponse<unknown>>(
+    `/api/v1/time-deals/seller/${timeDealId}/stock/transfer`,
+    { productId, quantity },
   )
   return response.data.data
 }
