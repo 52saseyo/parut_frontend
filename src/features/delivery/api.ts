@@ -28,6 +28,23 @@ export type DeliveryListParams = {
   cursorId?: string
 }
 
+export type AdminDelivery = Delivery & {
+  orderId: string
+  customerId: string
+  sellerId: string
+}
+
+export type AdminDeliveryPage = {
+  content: AdminDelivery[]
+  pageInfo: {
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    last: boolean
+  }
+}
+
 export async function getDelivery(deliveryId: string) {
   const response = await apiClient.get<ApiResponse<Delivery>>(`/api/v1/deliveries/${deliveryId}`)
   return response.data.data
@@ -36,6 +53,13 @@ export async function getDelivery(deliveryId: string) {
 export async function getDeliveries(params: DeliveryListParams = {}) {
   const response = await apiClient.get<ApiResponse<DeliveryListResponse>>('/api/v1/deliveries', {
     params: { size: 10, ...params },
+  })
+  return response.data.data
+}
+
+export async function getAdminDeliveries(page = 0, size = 50) {
+  const response = await apiClient.get<ApiResponse<AdminDeliveryPage>>('/api/v1/admin/deliveries', {
+    params: { page, size, sort: 'createdAt,id', direction: 'desc' },
   })
   return response.data.data
 }

@@ -18,6 +18,7 @@ import {
   useCreateTimeDealOrder,
   useConfirmPayment,
   useConfirmOrderItem,
+  useAdminOrderDetails,
   useOrder,
   useOrders,
   usePreparePayment,
@@ -27,7 +28,7 @@ import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useApproveRefunds, useCancelRefund, useRefunds, useRejectRefund, useRequestRefund } from './features/refunds/hooks'
 import type { Refund } from './features/refunds/api'
-import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
+import { useAdminDeliveries, useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
 import { useAdminSettlements, useCompleteSettlements, useSellerSettlements } from './features/settlements/hooks'
 import type { SettlementStatus } from './features/settlements/api'
@@ -2856,6 +2857,47 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
   )
 }
 
+function AdminProductManagement() {
+  const productsQuery = useProducts({ size: 50 })
+  const activeTimeDealsQuery = useTimeDeals({ status: 'ACTIVE', size: 50 })
+  const scheduledTimeDealsQuery = useTimeDeals({ status: 'SCHEDULED', size: 50 })
+  const products = productsQuery.data?.content ?? []
+  const timeDeals = [...(activeTimeDealsQuery.data?.content ?? []), ...(scheduledTimeDealsQuery.data?.content ?? [])]
+
+  return (
+    <section className="mt-8 space-y-5">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold">일반 상품</h2>
+          <p className="mt-1 text-sm text-slate-500">공개 상품 API에서 조회되는 일반 상품 목록입니다.</p>
+        </div>
+        {productsQuery.isPending && <div className="h-40 animate-pulse bg-slate-50" />}
+        {productsQuery.isError && <p className="p-10 text-center text-sm text-red-600">일반 상품을 불러오지 못했습니다.</p>}
+        {!productsQuery.isPending && !productsQuery.isError && products.length === 0 && <p className="p-10 text-center text-sm text-slate-500">조회되는 일반 상품이 없습니다.</p>}
+        {products.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">상품</th><th className="px-5 py-3">카테고리</th><th className="px-5 py-3">판매가</th><th className="px-5 py-3">상품 ID</th></tr></thead><tbody className="divide-y divide-slate-100">{products.map((product) => <tr key={product.productId}><td className="px-5 py-4 font-semibold">{product.name}</td><td className="px-5 py-4 text-slate-500">{product.category}</td><td className="px-5 py-4">{money(product.price)}</td><td className="px-5 py-4 font-mono text-xs">{product.productId}</td></tr>)}</tbody></table></div>}
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">타임딜 상품</h2><p className="mt-1 text-sm text-slate-500">활성·예약된 타임딜을 별도 영역에서 조회합니다.</p></div>
+        {activeTimeDealsQuery.isPending || scheduledTimeDealsQuery.isPending ? <div className="h-40 animate-pulse bg-slate-50" /> : activeTimeDealsQuery.isError || scheduledTimeDealsQuery.isError ? <p className="p-10 text-center text-sm text-red-600">타임딜 상품을 불러오지 못했습니다.</p> : timeDeals.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">조회되는 타임딜 상품이 없습니다.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">상품</th><th className="px-5 py-3">상태</th><th className="px-5 py-3">판매가</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">판매 기간</th></tr></thead><tbody className="divide-y divide-slate-100">{timeDeals.map((deal) => <tr key={deal.timeDealId}><td className="px-5 py-4 font-semibold">{deal.name}</td><td className="px-5 py-4"><StatusBadge tone={deal.status === 'ACTIVE' ? 'green' : 'orange'}>{deal.status}</StatusBadge></td><td className="px-5 py-4">{money(deal.dealPrice)}</td><td className="px-5 py-4">{deal.stock.availableQuantity}개</td><td className="px-5 py-4 text-xs text-slate-500">{new Date(deal.startAt).toLocaleString('ko-KR')}<br />~ {new Date(deal.endAt).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div>}
+      </div>
+    </section>
+  )
+}
+
+function AdminOrderRefundManagement() {
+  const deliveriesQuery = useAdminDeliveries()
+  const orderIds = Array.from(new Set((deliveriesQuery.data?.content ?? []).map((delivery) => delivery.orderId)))
+  const orderQueries = useAdminOrderDetails(orderIds, !deliveriesQuery.isPending && !deliveriesQuery.isError)
+  const orders = orderQueries.map((query) => query.data).filter((order): order is NonNullable<typeof order> => Boolean(order))
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">주문·환불 목록</h2><p className="mt-1 text-sm text-slate-500">주문별 상품 상태를 기준으로 환불 요청·완료 여부를 확인합니다.</p></div>
+      {deliveriesQuery.isPending || orderQueries.some((query) => query.isPending) ? <div className="h-48 animate-pulse bg-slate-50" /> : deliveriesQuery.isError || orderQueries.some((query) => query.isError) ? <p className="p-10 text-center text-sm text-red-600">관리자 주문 목록을 불러오지 못했습니다.</p> : orders.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">조회되는 주문이 없습니다.</p> : <div className="divide-y divide-slate-100">{orders.map((order) => <div key={order.orderId} className="p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-bold">{order.orderNo}</p><p className="mt-1 font-mono text-xs text-slate-400">{order.orderId}</p></div><StatusBadge tone={order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUND_REQUESTED' || item.itemStatus === 'REFUNDED')) ? 'orange' : 'green'}>{order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUND_REQUESTED')) ? '환불 요청' : order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUNDED')) ? '환불 완료' : '환불 없음'}</StatusBadge></div><div className="mt-4 space-y-2">{order.deliveryGroups.flatMap((group) => group.items).map((item) => <div key={item.orderItemId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm"><span className="font-semibold">{item.productName} · {item.quantity}개</span><span className="text-xs text-slate-500">상품 상태: <strong className="text-slate-700">{item.itemStatus}</strong></span></div>)}</div></div>)}</div>}
+    </section>
+  )
+}
+
 function AdminStockManagement() {
   const stocksQuery = useSellerStocks(1, 50)
   const stocks = stocksQuery.data?.content ?? []
@@ -2955,7 +2997,6 @@ function DashboardPage({
                     : seller
                       ? '판매자 대시보드'
                       : '운영 대시보드'
-  const productRows = products.slice(0, 4)
   return (
     <DashboardLayout role={role}>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -3003,64 +3044,12 @@ function DashboardPage({
       {seller && section === 'orders' && <SellerOrderManagement />}
       {seller && section === 'refunds' && <SellerRefundManagement />}
       {seller && section === 'settlements' && <SellerSettlementManagement />}
-      {!seller && section === 'admin-products' && (
-        <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">상품 목록</h2></div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">상품</th>
-                  <th className="px-5 py-3">카테고리</th>
-                  <th className="px-5 py-3">판매가</th>
-                  <th className="px-5 py-3">재고</th>
-                  <th className="px-5 py-3">상태</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {productRows.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-5 py-4 font-semibold text-slate-900">{product.name}</td>
-                    <td className="px-5 py-4 text-slate-500">{product.category}</td>
-                    <td className="px-5 py-4">{money(product.price)}</td>
-                    <td className="px-5 py-4">{product.stock}개</td>
-                    <td className="px-5 py-4">
-                      <StatusBadge tone={product.stock < 10 ? 'orange' : 'green'}>
-                        {product.stock < 10 ? '재고 임박' : '판매 중'}
-                      </StatusBadge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {!seller && section === 'admin-products' && <AdminProductManagement />}
       {!seller && section === 'admin-stocks' && <AdminStockManagement />}
       {section === 'sellers' && (
         <AdminSellerApplications />
       )}
-      {!seller && section === 'admin-orders' && (
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4 font-bold">최근 주문</div>
-          {['P-20250918-001', 'P-20250918-002', 'P-20250917-031'].map((id, index) => (
-            <div
-              key={id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 last:border-0"
-            >
-              <div>
-                <p className="font-bold">{id}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {['논산 설향 딸기 외 1건', '무농약 남해 시금치', '못난이 햇감자'][index]}
-                </p>
-              </div>
-              <StatusBadge tone={index === 2 ? 'blue' : 'orange'}>
-                {index === 2 ? '배송 중' : '처리 필요'}
-              </StatusBadge>
-            </div>
-          ))}
-        </div>
-      )}
+      {!seller && section === 'admin-orders' && <AdminOrderRefundManagement />}
       {!seller && section === 'settlements' && <AdminSettlementManagement />}
     </DashboardLayout>
   )

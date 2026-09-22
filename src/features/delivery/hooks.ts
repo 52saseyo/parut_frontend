@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getDelivery,
   getDeliveries,
+  getAdminDeliveries,
   startDelivery,
   type DeliveryListParams,
 } from './api'
@@ -24,6 +25,14 @@ export function useDeliveries(params: DeliveryListParams = {}, enabled = true) {
   return useQuery({
     queryKey: deliveryKeys.list(params),
     queryFn: () => getDeliveries(params),
+    enabled,
+  })
+}
+
+export function useAdminDeliveries(enabled = true) {
+  return useQuery({
+    queryKey: ['admin', 'deliveries'],
+    queryFn: () => getAdminDeliveries(),
     enabled,
   })
 }
