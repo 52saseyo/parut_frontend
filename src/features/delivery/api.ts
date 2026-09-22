@@ -33,7 +33,7 @@ export async function getDelivery(deliveryId: string) {
   return response.data.data
 }
 
-export async function getSellerDeliveries(params: DeliveryListParams = {}) {
+export async function getDeliveries(params: DeliveryListParams = {}) {
   const response = await apiClient.get<ApiResponse<DeliveryListResponse>>('/api/v1/deliveries', {
     params: { size: 10, ...params },
   })

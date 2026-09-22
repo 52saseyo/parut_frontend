@@ -27,6 +27,9 @@
 | 판매자 타임딜 | 등록·수정·삭제·중지·이미지·재고·상품 전환 | `src/features/seller-products` |
 | 고객 주문 | 주문 생성·목록·상세 | `src/features/orders` |
 | 결제 준비 | 결제 준비 API 호출 | `src/features/orders` |
+| 고객 배송·구매확정 | 배송 목록·운송장 표시, 배송 완료 상품 구매확정 | `src/features/delivery`, `src/features/orders`, `/orders/:orderId` |
+| 고객 배송지 | 저장 배송지 조회·선택·등록 | `src/features/addresses`, `/checkout` |
+| 고객 환불 | 환불 신청·목록·요청 취소 | `src/features/refunds`, `/orders/:orderId` |
 | 판매자 배송 | 배송 건 목록 조회, `PREPARING` 배송의 운송장 입력·배송 시작 | `src/features/delivery`, `/seller/orders` |
 
 ### 화면은 있으나 목업 또는 부분 연동
@@ -38,8 +41,8 @@
 | 결제 확정 | 결제 확정 API는 호출하지만 `MOCK-PAYMENT-*` 값을 전달해 실제 PG 결제가 아님 | `POST /api/v1/payments/confirm` |
 | 주문 취소 | 백엔드 API는 있으나 고객·판매자 화면에 취소 흐름이 없음 | `POST /api/v1/orders/{orderId}/cancel` |
 | 구매확정 | hook은 있으나 주문 상세 화면의 구매확정 UI가 없음 | `PATCH /api/v1/orders/{orderId}/items/{orderItemId}/confirm` |
-| 배송 상세 | 주문 상세에 배송그룹 상태를 표시하지만 배송 조회 API를 직접 사용하지 않음 | `GET /api/v1/deliveries`, `GET /api/v1/deliveries/{deliveryId}` |
-| 환불 | 고객 환불 신청은 연결되어 있으나 환불 취소·판매자 승인·거절 화면은 없음 | `/api/v1/order-items`, `/api/v1/refunds` |
+| 배송 상세 | 배송 상세 단건 조회 화면은 아직 없고 주문 상세에서 배송 목록을 표시 | `GET /api/v1/deliveries/{deliveryId}` |
+| 환불 | 고객 흐름은 연결됐고 판매자 승인·거절 화면은 없음 | `/api/v1/refunds/approve`, `/api/v1/refunds/{refundId}/reject` |
 | 판매자 대시보드 | 주문 수·배송 대기·정산 금액이 정적 숫자 | 배송·정산 API |
 | 관리자 대시보드 | 상품·재고·주문·환불·정산 운영 화면이 샘플 데이터 | 관리자 API 다수 |
 
@@ -49,7 +52,7 @@
 | --- | --- | --- |
 | 판매자 정산 | `GET /api/v1/settlements` | `/seller/settlements` 실제 목록·상세 |
 | 관리자 정산 | `GET /api/v1/admin/settlements`, `PATCH /api/v1/settlements/complete` | `/admin/settlements` 운영 테이블·완료 처리 |
-| 고객 환불 조회·취소 | `GET /api/v1/refunds`, `GET /api/v1/refunds/{refundId}`, `PATCH /api/v1/refunds/{refundId}/cancel` | 환불 내역·신청 취소 |
+| 주소 관리 전체 | `PATCH/DELETE /api/v1/users/me/addresses/*` | checkout 외 주소 관리 화면 |
 | 판매자 환불 운영 | `GET /api/v1/refunds`, `PATCH /api/v1/refunds/approve`, `PATCH /api/v1/refunds/{refundId}/reject` | `/seller/orders` 또는 별도 환불 관리 |
 | 관리자 환불·배송 | `GET /api/v1/admin/refunds`, `GET /api/v1/admin/deliveries` | `/admin/orders` 운영 테이블 |
 | 알림 | `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `PATCH /api/v1/notifications/{notificationId}/read` | `/notifications`, 헤더 읽지 않은 알림 수 |
@@ -138,7 +141,7 @@
 
 1. `feature/payment-real-flow`: 결제 확정 실제 흐름
 2. `feature/order-cancel-confirm`: 주문 취소·구매확정
-3. `feature/customer-delivery-refund`: 고객 배송 조회·환불 조회/취소
+3. `feature/address-management`: 배송지 수정·기본 변경·삭제 화면
 4. `feature/seller-settlement-refund`: 판매자 정산·환불 운영
 5. `feature/admin-operation-api`: 관리자 상품·재고·주문·배송·환불·정산
 6. `feature/notification-account-api`: 알림·타임딜 구독·내 정보 관리

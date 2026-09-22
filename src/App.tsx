@@ -22,11 +22,13 @@ import {
   useOrders,
   usePreparePayment,
 } from './features/orders/hooks'
+import type { Recipient } from './features/orders/api'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
-import { useRequestRefund } from './features/refunds/hooks'
-import { useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
+import { useCancelRefund, useRefunds, useRequestRefund } from './features/refunds/hooks'
+import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
+import { useAddresses, useCreateAddress } from './features/addresses/hooks'
 import type { ApiTimeDeal, TimeDealListStatus, TimeDealStatus } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 import { authStorage } from './lib/api'
@@ -1012,11 +1014,17 @@ function OrderDetailPage() {
   const { orderId } = useParams()
   const orderQuery = useOrder(orderId)
   const refundMutation = useRequestRefund()
+  const cancelRefundMutation = useCancelRefund()
   const confirmOrderItemMutation = useConfirmOrderItem()
+  const deliveriesQuery = useDeliveries({ orderId }, Boolean(orderId))
+  const refundsQuery = useRefunds(Boolean(orderId))
   const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
   const firstOrderItem = firstDeliveryGroup?.items[0]
   const firstOrderItemId = firstOrderItem?.orderItemId
   const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
+  const currentRefund = refundsQuery.data?.content.find(
+    (refund) => refund.orderItemId === firstOrderItemId,
+  )
   const canConfirmOrderItem = Boolean(
     orderId &&
       firstOrderItemId &&
@@ -1105,6 +1113,20 @@ function OrderDetailPage() {
                   </p>
                 </div>
               </div>
+              {deliveriesQuery.data?.content.map((delivery) => (
+                <div key={delivery.deliveryId} className="mt-5 rounded-xl bg-slate-50 p-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-700">배송 상태</span>
+                    <StatusBadge tone={deliveryStatusTone(delivery.status)}>
+                      {deliveryStatusLabel(delivery.status)}
+                    </StatusBadge>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                    <span>운송장 번호: {delivery.trackingNumber ?? '아직 등록되지 않았습니다.'}</span>
+                    <span>배송 완료: {delivery.deliveredAt ? formatApplicationDate(delivery.deliveredAt) : '-'}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
           <aside className="rounded-2xl bg-slate-950 p-6 text-white">
@@ -1174,6 +1196,19 @@ function OrderDetailPage() {
             {refundMutation.isSuccess && (
               <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
             )}
+            {currentRefund?.status === 'REQUESTED' && (
+              <button
+                type="button"
+                disabled={cancelRefundMutation.isPending}
+                onClick={() => cancelRefundMutation.mutate(currentRefund.refundId)}
+                className="mt-3 w-full rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {cancelRefundMutation.isPending ? '환불 취소 중...' : '환불 요청 취소'}
+              </button>
+            )}
+            {currentRefund && currentRefund.status !== 'REQUESTED' && (
+              <p className="mt-3 text-xs text-slate-400">환불 상태: {currentRefund.status}</p>
+            )}
             {refundMutation.isError && (
               <p className="mt-3 text-xs text-rose-300">
                 환불 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.
@@ -1199,6 +1234,8 @@ function CheckoutPage() {
   const productQuery = useProduct(state?.productId, !isTimeDeal)
   const timeDealQuery = useTimeDeal(state?.timeDealId, isTimeDeal)
   const userQuery = useMyInfo(isAuthenticated)
+  const addressesQuery = useAddresses(isAuthenticated)
+  const createAddressMutation = useCreateAddress()
   const product = isTimeDeal
     ? timeDealQuery.data
       ? timeDealFromApi(timeDealQuery.data)
@@ -1207,7 +1244,7 @@ function CheckoutPage() {
       ? productFromApi(productQuery.data)
       : null
   const quantity = state?.quantity ?? 1
-  const [recipient, setRecipient] = useState(() => {
+  const [recipient, setRecipient] = useState<Recipient>(() => {
     const saved = localStorage.getItem('parut.checkout.recipient')
     if (saved) {
       try {
@@ -1234,6 +1271,30 @@ function CheckoutPage() {
     recipientName: recipient.recipientName || userQuery.data?.name || '',
   }
   const serializedRecipient = JSON.stringify(effectiveRecipient)
+  const savedAddresses = addressesQuery.data ?? []
+
+  function applySavedAddress(address: (typeof savedAddresses)[number]) {
+    setRecipient((current) => ({
+      ...current,
+      recipientName: address.recipientName ?? '',
+      recipientPhone: address.recipientPhone ?? '',
+      zipCode: address.zipCode ?? '',
+      addressBase: address.addressBase ?? '',
+      addressDetail: address.addressDetail ?? '',
+    }))
+  }
+
+  function saveCurrentAddress() {
+    createAddressMutation.mutate({
+      addressName: `배송지 ${savedAddresses.length + 1}`,
+      recipientName: effectiveRecipient.recipientName,
+      recipientPhone: effectiveRecipient.recipientPhone,
+      zipCode: effectiveRecipient.zipCode,
+      addressBase: effectiveRecipient.addressBase,
+      addressDetail: effectiveRecipient.addressDetail,
+      defaultAddress: savedAddresses.length === 0,
+    })
+  }
 
   useEffect(() => {
     if (locationState) {
@@ -1391,6 +1452,27 @@ function CheckoutPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-bold">배송 정보</h2>
+              {savedAddresses.length > 0 && (
+                <div className="mt-5 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">저장된 배송지</p>
+                  {savedAddresses.map((address) => (
+                    <button
+                      key={address.addressId}
+                      type="button"
+                      onClick={() => applySavedAddress(address)}
+                      className={`w-full rounded-xl border px-4 py-3 text-left text-sm ${address.defaultAddress ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}
+                    >
+                      <span className="font-bold">{address.addressName || '배송지'}</span>
+                      {address.defaultAddress && (
+                        <span className="ml-2 text-xs font-semibold text-emerald-700">기본</span>
+                      )}
+                      <span className="mt-1 block text-xs text-slate-500">
+                        {address.recipientName} · {address.addressBase} {address.addressDetail}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
@@ -1438,10 +1520,23 @@ function CheckoutPage() {
                     setRecipient({ ...recipient, deliveryRequest: event.target.value })
                   }
                 />
-                <p className="sm:col-span-2 text-xs text-slate-500">
-                  최근 입력한 배송지가 있으면 자동으로 불러옵니다. 계정 배송지 API가 추가되면 서버
-                  주소로 교체됩니다.
-                </p>
+                <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500">입력한 배송지를 다음 주문에도 사용할 수 있습니다.</p>
+                  <button
+                    type="button"
+                    disabled={createAddressMutation.isPending || !effectiveRecipient.addressBase}
+                    onClick={saveCurrentAddress}
+                    className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {createAddressMutation.isPending ? '저장 중...' : '배송지 저장'}
+                  </button>
+                </div>
+                {createAddressMutation.isSuccess && (
+                  <p className="sm:col-span-2 text-xs text-emerald-700">배송지를 저장했습니다.</p>
+                )}
+                {addressesQuery.isError && (
+                  <p className="sm:col-span-2 text-xs text-red-600">저장 배송지를 불러오지 못했습니다.</p>
+                )}
               </div>
             </div>
           </section>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getDelivery,
-  getSellerDeliveries,
+  getDeliveries,
   startDelivery,
   type DeliveryListParams,
 } from './api'
@@ -20,13 +20,15 @@ export function useDelivery(deliveryId: string | undefined) {
   })
 }
 
-export function useSellerDeliveries(params: DeliveryListParams = {}, enabled = true) {
+export function useDeliveries(params: DeliveryListParams = {}, enabled = true) {
   return useQuery({
     queryKey: deliveryKeys.list(params),
-    queryFn: () => getSellerDeliveries(params),
+    queryFn: () => getDeliveries(params),
     enabled,
   })
 }
+
+export const useSellerDeliveries = useDeliveries
 
 export function useStartDelivery() {
   const queryClient = useQueryClient()

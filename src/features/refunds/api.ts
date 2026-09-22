@@ -13,6 +13,17 @@ export type Refund = {
   processedBy: string | null
 }
 
+export type RefundListResponse = {
+  content: Refund[]
+  pageInfo: {
+    nextCursor: string | null
+    nextIdAfter: string | null
+    hasNext: boolean
+    sortBy: string
+    sortDirection: 'ASC' | 'DESC'
+  }
+}
+
 export function approveRefundsPayload(refundIds: string[]) {
   return { refundIds }
 }
@@ -22,6 +33,13 @@ export async function requestRefund(orderItemId: string, reason: string) {
     `/api/v1/order-items/${orderItemId}/refunds`,
     { reason },
   )
+  return response.data.data
+}
+
+export async function getRefunds() {
+  const response = await apiClient.get<ApiResponse<RefundListResponse>>('/api/v1/refunds', {
+    params: { size: 10 },
+  })
   return response.data.data
 }
 
