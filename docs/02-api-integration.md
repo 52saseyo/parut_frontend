@@ -60,6 +60,8 @@ checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 - `GET /api/v1/deliveries/{deliveryId}`: 배송 상세 조회
 - `GET /api/v1/deliveries?orderId={orderId}`: 판매자 주문별 배송 목록
 - `PATCH /api/v1/deliveries/{deliveryId}/ship`: 배송 시작
+
+판매자 주문·배송 화면은 `GET /api/v1/deliveries?size=10`으로 판매자 소유 배송 작업을 조회하고, `PREPARING` 상태 배송에 운송장 번호를 입력해 `PATCH /api/v1/deliveries/{deliveryId}/ship`을 호출합니다. 현재 배송 목록 응답에는 주문번호·상품명이 포함되지 않고 배송 ID·배송그룹 ID·상태·운송장 정보만 포함됩니다.
 - `POST /api/v1/order-items/{orderItemId}/refunds`: 환불 신청
 - `PATCH /api/v1/refunds/{refundId}/cancel`: 환불 신청 취소
 - `PATCH /api/v1/refunds/approve`: 판매자 환불 일괄 승인

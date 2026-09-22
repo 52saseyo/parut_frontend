@@ -24,6 +24,8 @@ import {
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useRequestRefund } from './features/refunds/hooks'
+import { useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
+import type { Delivery } from './features/delivery/api'
 import type { ApiTimeDeal, TimeDealListStatus, TimeDealStatus } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 import { authStorage } from './lib/api'
@@ -2537,6 +2539,7 @@ function DashboardPage({
       {seller && section === 'stocks' && <SellerStockManagement />}
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
       {seller && section === 'time-deal-stocks' && <SellerTimeDealStockManagement />}
+      {seller && section === 'orders' && <SellerOrderManagement />}
       {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4">
@@ -2575,7 +2578,7 @@ function DashboardPage({
       {section === 'sellers' && (
         <AdminSellerApplications />
       )}
-      {(section === 'orders' || section === 'admin-orders') && (
+      {!seller && section === 'admin-orders' && (
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4 font-bold">최근 주문</div>
           {['P-20250918-001', 'P-20250918-002', 'P-20250917-031'].map((id, index) => (
@@ -2597,6 +2600,129 @@ function DashboardPage({
         </div>
       )}
     </DashboardLayout>
+  )
+}
+
+function deliveryStatusLabel(status: Delivery['status']) {
+  return status === 'PREPARING' ? '상품 준비 중' : status === 'SHIPPED' ? '배송 중' : '배송 완료'
+}
+
+function deliveryStatusTone(status: Delivery['status']): 'green' | 'blue' | 'orange' {
+  return status === 'PREPARING' ? 'orange' : status === 'SHIPPED' ? 'blue' : 'green'
+}
+
+function SellerOrderManagement() {
+  const deliveriesQuery = useSellerDeliveries()
+  const startDeliveryMutation = useStartDelivery()
+  const [trackingNumbers, setTrackingNumbers] = useState<Record<string, string>>({})
+  const [activeDeliveryId, setActiveDeliveryId] = useState<string | null>(null)
+  const deliveries = deliveriesQuery.data?.content ?? []
+
+  const startDelivery = (delivery: Delivery) => {
+    const trackingNumber = trackingNumbers[delivery.deliveryId]?.trim()
+    if (!trackingNumber) return
+    setActiveDeliveryId(delivery.deliveryId)
+    startDeliveryMutation.mutate(
+      { deliveryId: delivery.deliveryId, trackingNumber },
+      { onSuccess: () => setTrackingNumbers((current) => ({ ...current, [delivery.deliveryId]: '' })) },
+    )
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold">배송 작업 목록</h2>
+          <p className="mt-1 text-sm text-slate-500">상품 준비가 끝난 주문에 운송장 번호를 입력하고 배송을 시작하세요.</p>
+        </div>
+        {deliveriesQuery.isPending ? (
+          <SellerDeliverySkeleton />
+        ) : deliveriesQuery.isError ? (
+          <div className="px-5 py-12 text-center text-sm text-red-700">배송 목록을 불러오지 못했습니다.</div>
+        ) : deliveries.length === 0 ? (
+          <div className="px-5 py-12 text-center text-sm text-slate-500">처리할 배송이 없습니다.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">배송 ID</th>
+                  <th className="px-5 py-3">배송그룹 ID</th>
+                  <th className="px-5 py-3">상태</th>
+                  <th className="px-5 py-3">운송장 번호</th>
+                  <th className="px-5 py-3">관리</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {deliveries.map((delivery) => {
+                  const isStarting = activeDeliveryId === delivery.deliveryId && startDeliveryMutation.isPending
+                  return (
+                    <tr key={delivery.deliveryId}>
+                      <td className="px-5 py-4 font-mono text-xs">{delivery.deliveryId}</td>
+                      <td className="px-5 py-4 font-mono text-xs">{delivery.deliveryGroupId}</td>
+                      <td className="px-5 py-4">
+                        <StatusBadge tone={deliveryStatusTone(delivery.status)}>
+                          {deliveryStatusLabel(delivery.status)}
+                        </StatusBadge>
+                      </td>
+                      <td className="px-5 py-4">{delivery.trackingNumber ?? '-'}</td>
+                      <td className="px-5 py-4">
+                        {delivery.status === 'PREPARING' ? (
+                          <form
+                            className="flex min-w-[280px] gap-2"
+                            onSubmit={(event) => {
+                              event.preventDefault()
+                              startDelivery(delivery)
+                            }}
+                          >
+                            <input
+                              required
+                              value={trackingNumbers[delivery.deliveryId] ?? ''}
+                              onChange={(event) =>
+                                setTrackingNumbers((current) => ({
+                                  ...current,
+                                  [delivery.deliveryId]: event.target.value,
+                                }))
+                              }
+                              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              placeholder="운송장 번호"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isStarting}
+                              className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-300"
+                            >
+                              {isStarting ? '처리 중' : '배송 시작'}
+                            </button>
+                          </form>
+                        ) : (
+                          <span className="text-slate-400">처리 완료</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {startDeliveryMutation.isError && (
+        <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          배송 시작에 실패했습니다. 운송장 번호와 배송 상태를 확인해주세요.
+        </p>
+      )}
+    </section>
+  )
+}
+
+function SellerDeliverySkeleton() {
+  return (
+    <div className="space-y-3 p-5" aria-label="배송 목록을 불러오는 중입니다.">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+      ))}
+    </div>
   )
 }
 
