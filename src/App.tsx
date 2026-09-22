@@ -17,6 +17,7 @@ import {
   useCreateOrder,
   useCreateTimeDealOrder,
   useConfirmPayment,
+  useConfirmOrderItem,
   useOrder,
   useOrders,
   usePreparePayment,
@@ -1011,10 +1012,17 @@ function OrderDetailPage() {
   const { orderId } = useParams()
   const orderQuery = useOrder(orderId)
   const refundMutation = useRequestRefund()
+  const confirmOrderItemMutation = useConfirmOrderItem()
   const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
   const firstOrderItem = firstDeliveryGroup?.items[0]
   const firstOrderItemId = firstOrderItem?.orderItemId
   const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
+  const canConfirmOrderItem = Boolean(
+    orderId &&
+      firstOrderItemId &&
+      firstDeliveryGroup?.groupStatus === 'DELIVERED' &&
+      firstOrderItem?.itemStatus === 'ORDERED',
+  )
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
   const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
   if (orderQuery.isError) {
@@ -1115,6 +1123,31 @@ function OrderDetailPage() {
                 <span>28,800원</span>
               </div>
             </div>
+            <button
+              type="button"
+              disabled={!canConfirmOrderItem || confirmOrderItemMutation.isPending}
+              onClick={() =>
+                orderId &&
+                firstOrderItemId &&
+                confirmOrderItemMutation.mutate({ orderId, orderItemId: firstOrderItemId })
+              }
+              className="mt-7 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {confirmOrderItemMutation.isPending
+                ? '구매확정 처리 중...'
+                : firstOrderItem?.itemStatus === 'CONFIRMED'
+                  ? '구매확정 완료'
+                  : '구매확정'}
+            </button>
+            {!canConfirmOrderItem && firstOrderItem?.itemStatus !== 'CONFIRMED' && (
+              <p className="mt-3 text-xs text-slate-400">배송 완료된 상품만 구매확정할 수 있습니다.</p>
+            )}
+            {confirmOrderItemMutation.isSuccess && (
+              <p className="mt-3 text-xs text-emerald-300">구매확정이 완료됐습니다.</p>
+            )}
+            {confirmOrderItemMutation.isError && (
+              <p className="mt-3 text-xs text-rose-300">구매확정에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+            )}
             <button
               type="button"
               disabled={!canRequestRefund || refundMutation.isPending}
