@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { completeSettlements, getAdminSettlements, getSellerSettlements, type SettlementStatus } from './api'
 
-export function useSellerSettlements(status: SettlementStatus = 'PENDING') {
+export function useSellerSettlements(status: SettlementStatus = 'PENDING', enabled = true) {
   return useQuery({
     queryKey: ['settlements', 'seller', status],
-    queryFn: () => getSellerSettlements(status),
+    queryFn: () => getSellerSettlements(status, 50),
+    enabled,
   })
 }
 

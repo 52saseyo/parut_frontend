@@ -40,9 +40,9 @@ export type AdminSettlementPage = {
   }
 }
 
-export async function getSellerSettlements(status: SettlementStatus = 'PENDING') {
+export async function getSellerSettlements(status: SettlementStatus = 'PENDING', size: 10 | 30 | 50 = 50) {
   const response = await apiClient.get<ApiResponse<SellerSettlementPage>>('/api/v1/settlements', {
-    params: { status, size: 10 },
+    params: { status, size },
   })
   return response.data.data
 }
