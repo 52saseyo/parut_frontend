@@ -18,7 +18,7 @@
 | order-service        | `/api/v1/orders`, `/api/v1/payments`, `/api/v1/deliveries`, `/api/v1/refunds`, `/api/v1/settlements`    |
 | notification-service | `/api/v1/notifications`, `/api/v1/notification-subscriptions`                                           |
 
-타임딜의 공개 조회는 `/api/v1/time-deals`를 사용하고, 판매자 전용 생성·목록·수정·삭제·중지·재고 작업은 `/api/v1/time-deals/seller` 하위 endpoint를 사용합니다. 판매자 API의 목록은 cursor 기반이며 `cursor`, `cursorId`, `size`를 사용합니다.
+타임딜의 공개 조회는 `/api/v1/time-deals`를 사용하고, 판매자 전용 생성·목록·수정·삭제·중지·재고 작업은 `/api/v1/seller/time-deals` 하위 endpoint를 사용합니다. 판매자 API의 목록은 cursor 기반이며 `cursor`, `cursorId`, `size`를 사용합니다.
 
 프론트엔드는 개별 서비스 주소가 아니라 API Gateway의 base URL을 사용합니다. 로컬 기본값은 `.env.example`의 `http://localhost:8080`입니다.
 
