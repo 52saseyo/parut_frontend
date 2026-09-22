@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'r
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { adminLogin, login, logout, signup } from './features/auth/api'
-import { useMyInfo } from './features/auth/hooks'
+import { useDeleteMyInfo, useMyInfo, useUpdateMyInfo } from './features/auth/hooks'
 import { useProcessSellerApplication, useSellerApplications } from './features/admin/hooks'
 import type { SellerApplication, SellerStatus } from './features/admin/api'
 import {
@@ -28,7 +28,14 @@ import { useProduct, useProducts } from './features/products/hooks'
 import { useCancelRefund, useRefunds, useRequestRefund } from './features/refunds/hooks'
 import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
-import { useAddresses, useCreateAddress } from './features/addresses/hooks'
+import {
+  useAddresses,
+  useCreateAddress,
+  useDeleteAddress,
+  useSetDefaultAddress,
+  useUpdateAddress,
+} from './features/addresses/hooks'
+import type { Address } from './features/addresses/api'
 import type { ApiTimeDeal, TimeDealListStatus, TimeDealStatus } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 import { authStorage } from './lib/api'
@@ -441,15 +448,23 @@ function Header() {
             관리자 센터
           </Link>
           {isAuthenticated ? (
-            <button
-              type="button"
-              onClick={() => {
-                void logout().finally(() => setIsAuthenticated(false))
-              }}
-              className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
-            >
-              로그아웃
-            </button>
+            <>
+              <Link
+                to="/me"
+                className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+              >
+                마이페이지
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void logout().finally(() => setIsAuthenticated(false))
+                }}
+                className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
             <Link
               to="/login"
@@ -1266,6 +1281,7 @@ function CheckoutPage() {
   const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const effectiveRecipient = {
     ...recipient,
     recipientName: recipient.recipientName || userQuery.data?.name || '',
@@ -1274,6 +1290,7 @@ function CheckoutPage() {
   const savedAddresses = addressesQuery.data ?? []
 
   function applySavedAddress(address: (typeof savedAddresses)[number]) {
+    setSelectedAddressId(address.addressId)
     setRecipient((current) => ({
       ...current,
       recipientName: address.recipientName ?? '',
@@ -1460,7 +1477,8 @@ function CheckoutPage() {
                       key={address.addressId}
                       type="button"
                       onClick={() => applySavedAddress(address)}
-                      className={`w-full rounded-xl border px-4 py-3 text-left text-sm ${address.defaultAddress ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}
+                      aria-pressed={selectedAddressId === address.addressId}
+                      className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${selectedAddressId === address.addressId ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200 hover:border-emerald-300'}`}
                     >
                       <span className="font-bold">{address.addressName || '배송지'}</span>
                       {address.defaultAddress && (
@@ -1772,6 +1790,218 @@ function AuthPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+type AddressFormState = {
+  addressName: string
+  recipientName: string
+  recipientPhone: string
+  zipCode: string
+  addressBase: string
+  addressDetail: string
+  defaultAddress: boolean
+}
+
+const emptyAddressForm: AddressFormState = {
+  addressName: '',
+  recipientName: '',
+  recipientPhone: '',
+  zipCode: '',
+  addressBase: '',
+  addressDetail: '',
+  defaultAddress: false,
+}
+
+function MyPage() {
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
+  const userQuery = useMyInfo(isAuthenticated)
+  const addressesQuery = useAddresses(isAuthenticated)
+  const updateUserMutation = useUpdateMyInfo()
+  const deleteUserMutation = useDeleteMyInfo()
+  const createAddressMutation = useCreateAddress()
+  const updateAddressMutation = useUpdateAddress()
+  const defaultAddressMutation = useSetDefaultAddress()
+  const deleteAddressMutation = useDeleteAddress()
+  const [name, setName] = useState('')
+  const [slackId, setSlackId] = useState('')
+  const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (userQuery.data) {
+      setName(userQuery.data.name)
+      setSlackId(userQuery.data.slackId ?? '')
+    }
+  }, [userQuery.data])
+
+  if (!isAuthenticated) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <h1 className="text-3xl font-black">로그인이 필요한 기능입니다</h1>
+          <Link to="/login" className="mt-8 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+            로그인하러 가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  const addresses = addressesQuery.data ?? []
+  const addressMutationPending =
+    createAddressMutation.isPending || updateAddressMutation.isPending
+
+  function startAddressEdit(address: Address) {
+    setEditingAddressId(address.addressId)
+    setAddressForm({
+      addressName: address.addressName ?? '',
+      recipientName: address.recipientName ?? '',
+      recipientPhone: address.recipientPhone ?? '',
+      zipCode: address.zipCode ?? '',
+      addressBase: address.addressBase ?? '',
+      addressDetail: address.addressDetail ?? '',
+      defaultAddress: address.defaultAddress,
+    })
+  }
+
+  function resetAddressForm() {
+    setEditingAddressId(null)
+    setAddressForm(emptyAddressForm)
+  }
+
+  function saveAddress(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (editingAddressId) {
+      updateAddressMutation.mutate(
+        { addressId: editingAddressId, input: addressForm },
+        { onSuccess: resetAddressForm },
+      )
+      return
+    }
+    createAddressMutation.mutate(addressForm, { onSuccess: resetAddressForm })
+  }
+
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        <p className="text-sm font-bold text-emerald-700">MY PARUT</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">마이페이지</h1>
+        <div className="mt-8 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6">
+            <h2 className="font-bold">내 정보</h2>
+            {userQuery.isPending ? (
+              <div className="mt-5 h-32 animate-pulse rounded-xl bg-slate-100" />
+            ) : (
+              <form
+                className="mt-5 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (userQuery.data) {
+                    updateUserMutation.mutate({ userId: userQuery.data.id, input: { name, slackId } })
+                  }
+                }}
+              >
+                <p className="text-sm text-slate-500">아이디: {userQuery.data?.username}</p>
+                <input
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder="이름"
+                />
+                <input
+                  value={slackId}
+                  onChange={(event) => setSlackId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder="Slack ID (선택)"
+                />
+                <button className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">
+                  {updateUserMutation.isPending ? '저장 중...' : '정보 저장'}
+                </button>
+                {updateUserMutation.isSuccess && <p className="text-xs text-emerald-700">내 정보를 저장했습니다.</p>}
+                <button
+                  type="button"
+                  disabled={deleteUserMutation.isPending || !userQuery.data}
+                  onClick={() => {
+                    if (userQuery.data && window.confirm('정말 탈퇴하시겠습니까?')) {
+                      deleteUserMutation.mutate(userQuery.data.id, { onSuccess: () => void logout() })
+                    }
+                  }}
+                  className="w-full rounded-xl border border-red-200 px-4 py-3 text-sm font-bold text-red-600 disabled:opacity-50"
+                >
+                  회원 탈퇴
+                </button>
+              </form>
+            )}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold">배송지 관리</h2>
+                <p className="mt-1 text-sm text-slate-500">checkout에서 저장한 배송지를 관리합니다.</p>
+              </div>
+              <span className="text-xs text-slate-400">{addresses.length}개</span>
+            </div>
+            <div className="mt-5 space-y-3">
+              {addressesQuery.isPending && <div className="h-24 animate-pulse rounded-xl bg-slate-100" />}
+              {!addressesQuery.isPending && addresses.length === 0 && (
+                <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">저장된 배송지가 없습니다.</p>
+              )}
+              {addresses.map((address) => (
+                <div key={address.addressId} className="rounded-xl border border-slate-200 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold">{address.addressName || '배송지'}</p>
+                      <p className="mt-1 text-sm text-slate-600">{address.recipientName} · {address.recipientPhone}</p>
+                      <p className="mt-1 text-sm text-slate-500">({address.zipCode}) {address.addressBase} {address.addressDetail}</p>
+                    </div>
+                    {address.defaultAddress && <StatusBadge tone="green">기본 배송지</StatusBadge>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!address.defaultAddress && (
+                      <button type="button" onClick={() => defaultAddressMutation.mutate(address.addressId)} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">기본으로 설정</button>
+                    )}
+                    <button type="button" onClick={() => startAddressEdit(address)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">수정</button>
+                    <button type="button" onClick={() => { if (window.confirm('이 배송지를 삭제하시겠습니까?')) deleteAddressMutation.mutate(address.addressId) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600">삭제</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2" onSubmit={saveAddress}>
+              <h3 className="sm:col-span-2 font-bold">{editingAddressId ? '배송지 수정' : '배송지 추가'}</h3>
+              {([
+                ['addressName', '배송지 이름'],
+                ['recipientName', '받는 분'],
+                ['recipientPhone', '연락처'],
+                ['zipCode', '우편번호'],
+                ['addressBase', '기본 주소'],
+                ['addressDetail', '상세 주소'],
+              ] as const).map(([field, placeholder]) => (
+                <input
+                  key={field}
+                  required={!['addressName', 'addressDetail'].includes(field)}
+                  value={addressForm[field]}
+                  onChange={(event) => setAddressForm((current) => ({ ...current, [field]: event.target.value }))}
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder={placeholder}
+                />
+              ))}
+              {!editingAddressId && (
+                <label className="sm:col-span-2 flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={addressForm.defaultAddress} onChange={(event) => setAddressForm((current) => ({ ...current, defaultAddress: event.target.checked }))} />
+                  기본 배송지로 설정
+                </label>
+              )}
+              <div className="sm:col-span-2 flex gap-2">
+                <button disabled={addressMutationPending} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{addressMutationPending ? '저장 중...' : editingAddressId ? '배송지 수정' : '배송지 추가'}</button>
+                {editingAddressId && <button type="button" onClick={resetAddressForm} className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">취소</button>}
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+    </PublicLayout>
   )
 }
 
@@ -3057,6 +3287,7 @@ function App() {
       <Route path="/cart" element={<CartPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+      <Route path="/me" element={<MyPage />} />
       <Route path="/login" element={<AuthPage />} />
       <Route path="/signup" element={<AuthPage />} />
       <Route path="/admin/login" element={<AuthPage />} />

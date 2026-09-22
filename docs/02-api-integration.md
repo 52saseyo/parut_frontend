@@ -71,13 +71,15 @@ checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 
 알림 서비스는 현재 domain과 enum만 있고 controller 및 외부 API가 백엔드에 구현되어 있지 않습니다. 따라서 프론트엔드에서는 알림 화면 구조만 유지하고, endpoint가 추가되면 `src/features/notifications`를 새로 연결합니다.
 
-배송지는 `src/features/addresses`에서 관리합니다. checkout은 `GET /api/v1/users/me/addresses`로 저장 배송지를 조회하고, 선택한 배송지의 수령인 정보를 주문 요청의 `recipient`에 복사합니다. 현재 checkout에서는 입력한 배송지를 `POST /api/v1/users/me/addresses`로 저장할 수 있습니다. 배송지의 수정·기본 변경·삭제 UI는 주소 관리 화면을 추가할 때 연결합니다.
+배송지는 `src/features/addresses`에서 관리합니다. checkout은 `GET /api/v1/users/me/addresses`로 저장 배송지를 조회하고, 선택한 배송지의 수령인 정보를 주문 요청의 `recipient`에 복사합니다. `/me` 마이페이지에서는 배송지 등록·수정·기본 변경·삭제를 모두 제공합니다.
 
 - `GET /api/v1/users/me/addresses`: 저장 배송지 목록
 - `POST /api/v1/users/me/addresses`: 배송지 등록
 - `PATCH /api/v1/users/me/addresses/{addressId}`: 배송지 수정
 - `PATCH /api/v1/users/me/addresses/{addressId}/default`: 기본 배송지 변경
 - `DELETE /api/v1/users/me/addresses/{addressId}`: 배송지 삭제
+
+내 정보는 `/me` 마이페이지에서 `GET /api/v1/users/me`, `PATCH /api/v1/users/{id}`, `DELETE /api/v1/users/{id}`를 사용합니다. 고객은 본인 정보만 수정·탈퇴할 수 있습니다.
 
 ## 상태 처리
 

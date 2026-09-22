@@ -30,6 +30,7 @@
 | 고객 배송·구매확정 | 배송 목록·운송장 표시, 배송 완료 상품 구매확정 | `src/features/delivery`, `src/features/orders`, `/orders/:orderId` |
 | 고객 배송지 | 저장 배송지 조회·선택·등록 | `src/features/addresses`, `/checkout` |
 | 고객 환불 | 환불 신청·목록·요청 취소 | `src/features/refunds`, `/orders/:orderId` |
+| 고객 계정·배송지 | 내 정보 수정·탈퇴, 배송지 CRUD·기본 배송지 변경 | `src/features/auth`, `src/features/addresses`, `/me` |
 | 판매자 배송 | 배송 건 목록 조회, `PREPARING` 배송의 운송장 입력·배송 시작 | `src/features/delivery`, `/seller/orders` |
 
 ### 화면은 있으나 목업 또는 부분 연동
@@ -52,7 +53,6 @@
 | --- | --- | --- |
 | 판매자 정산 | `GET /api/v1/settlements` | `/seller/settlements` 실제 목록·상세 |
 | 관리자 정산 | `GET /api/v1/admin/settlements`, `PATCH /api/v1/settlements/complete` | `/admin/settlements` 운영 테이블·완료 처리 |
-| 주소 관리 전체 | `PATCH/DELETE /api/v1/users/me/addresses/*` | checkout 외 주소 관리 화면 |
 | 판매자 환불 운영 | `GET /api/v1/refunds`, `PATCH /api/v1/refunds/approve`, `PATCH /api/v1/refunds/{refundId}/reject` | `/seller/orders` 또는 별도 환불 관리 |
 | 관리자 환불·배송 | `GET /api/v1/admin/refunds`, `GET /api/v1/admin/deliveries` | `/admin/orders` 운영 테이블 |
 | 알림 | `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `PATCH /api/v1/notifications/{notificationId}/read` | `/notifications`, 헤더 읽지 않은 알림 수 |
@@ -132,8 +132,7 @@
 
 1. 알림 목록·읽음 처리·읽지 않은 개수
 2. 타임딜 알림 구독·해제
-3. 내 정보 수정·회원 탈퇴
-4. 헤더와 마이페이지에 알림·계정 진입점 추가
+3. 헤더에 알림 진입점 추가
 
 ## 4. 다음 작업 단위
 
@@ -141,10 +140,9 @@
 
 1. `feature/payment-real-flow`: 결제 확정 실제 흐름
 2. `feature/order-cancel-confirm`: 주문 취소·구매확정
-3. `feature/address-management`: 배송지 수정·기본 변경·삭제 화면
-4. `feature/seller-settlement-refund`: 판매자 정산·환불 운영
-5. `feature/admin-operation-api`: 관리자 상품·재고·주문·배송·환불·정산
-6. `feature/notification-account-api`: 알림·타임딜 구독·내 정보 관리
+3. `feature/seller-settlement-refund`: 판매자 정산·환불 운영
+4. `feature/admin-operation-api`: 관리자 상품·재고·주문·배송·환불·정산
+5. `feature/notification-api`: 알림·타임딜 구독
 
 각 단위는 구현 전 해당 백엔드 endpoint와 DTO를 다시 확인하고, 구현 후 `npm run lint`, `npm test`, `npm run build`를 실행합니다.
 
