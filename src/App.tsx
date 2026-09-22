@@ -9,8 +9,9 @@ import {
   applyAsSeller,
   sellerLogin,
   type SellerApplicationRequest,
+  type SellerUpdateInput,
 } from './features/sellers/api'
-import { useMySellerApplicationStatus } from './features/sellers/hooks'
+import { useMySellerApplicationStatus, useMySellerInfo, useUpdateMySellerInfo } from './features/sellers/hooks'
 import { useSellerProduct, useSellerProductMutations, useSellerProducts, useSellerStocks, useSellerTimeDeals } from './features/seller-products/hooks'
 import type { AppearanceType, ProductCategory, ProductStatus, SaleUnit } from './features/seller-products/api'
 import {
@@ -2134,6 +2135,60 @@ const emptySellerApplication: SellerApplicationRequest = {
   slackId: '',
 }
 
+const emptySellerReapply: SellerUpdateInput = {
+  companyName: '',
+  bizAddress: '',
+  managerName: '',
+  managerPhone: '',
+  managerEmail: '',
+  slackId: '',
+}
+
+function SellerReapplyPage() {
+  const navigate = useNavigate()
+  const profileQuery = useMySellerInfo(Boolean(authStorage.getAccessToken()))
+  const mutation = useUpdateMySellerInfo()
+  const [form, setForm] = useState<SellerUpdateInput>(emptySellerReapply)
+
+  useEffect(() => {
+    if (profileQuery.data) {
+      setForm({
+        companyName: profileQuery.data.companyName,
+        bizAddress: profileQuery.data.bizAddress,
+        managerName: profileQuery.data.managerName,
+        managerPhone: profileQuery.data.managerPhone,
+        managerEmail: profileQuery.data.managerEmail,
+        slackId: profileQuery.data.slackId ?? '',
+      })
+    }
+  }, [profileQuery.data])
+
+  const fields: Array<[keyof SellerUpdateInput, string, string, 'text' | 'email']> = [
+    ['companyName', '업체명', '업체명', 'text'],
+    ['bizAddress', '사업장 주소', '사업장 주소', 'text'],
+    ['managerName', '담당자명', '담당자명', 'text'],
+    ['managerPhone', '담당자 전화번호', '담당자 전화번호', 'text'],
+    ['managerEmail', '담당자 이메일', '담당자 이메일', 'email'],
+    ['slackId', 'Slack ID', '선택 입력', 'text'],
+  ]
+
+  return (
+    <div className="min-h-screen bg-emerald-50 px-5 py-10 sm:py-16">
+      <div className="mx-auto max-w-2xl rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+        <Link to="/" className="text-xl font-black text-emerald-700">parut<span className="text-orange-500">.</span></Link>
+        <p className="mt-10 text-sm font-bold text-emerald-700">SELLER RE-APPLICATION</p>
+        <h1 className="mt-2 text-3xl font-black">판매자 재신청</h1>
+        <p className="mt-2 text-sm text-slate-500">기존 신청 정보를 수정해 다시 심사를 요청합니다.</p>
+        {profileQuery.isPending ? <div className="mt-8 h-64 animate-pulse rounded-xl bg-slate-100" /> : profileQuery.isError || !profileQuery.data ? <p className="mt-8 text-sm text-red-600">판매자 정보를 불러오지 못했습니다.</p> : <form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ sellerId: profileQuery.data.id, input: form }, { onSuccess: () => navigate('/seller') }) }}>
+          {fields.map(([field, label, placeholder, type]) => <label key={field} className={field === 'bizAddress' ? 'sm:col-span-2' : ''}><span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span><input required={field !== 'slackId'} value={form[field] ?? ''} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500" placeholder={placeholder} type={type} /></label>)}
+          {mutation.isError && <p className="sm:col-span-2 text-xs text-red-600">재신청에 실패했습니다. 입력값과 로그인 상태를 확인해주세요.</p>}
+          <button disabled={mutation.isPending} className="sm:col-span-2 rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{mutation.isPending ? '재신청 중...' : '재신청하기'}</button>
+        </form>}
+      </div>
+    </div>
+  )
+}
+
 function SellerApplyPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptySellerApplication)
@@ -2306,7 +2361,7 @@ function SellerAccessPage({ section = 'dashboard' }: { section?: string }) {
         </p>
         <div className="mt-8 flex justify-center gap-3">
           {status === 'REJECTED' && (
-            <Link to="/seller/apply" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+            <Link to="/seller/reapply" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
               다시 신청하기
             </Link>
           )}
@@ -2856,6 +2911,86 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
   )
 }
 
+function AdminProductManagement() {
+  const productsQuery = useProducts({ size: 50 })
+  const activeTimeDealsQuery = useTimeDeals({ status: 'ACTIVE', size: 50 })
+  const scheduledTimeDealsQuery = useTimeDeals({ status: 'SCHEDULED', size: 50 })
+  const products = productsQuery.data?.content ?? []
+  const timeDeals = [...(activeTimeDealsQuery.data?.content ?? []), ...(scheduledTimeDealsQuery.data?.content ?? [])]
+
+  return (
+    <section className="mt-8 space-y-5">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold">일반 상품</h2>
+          <p className="mt-1 text-sm text-slate-500">공개 상품 API에서 조회되는 일반 상품 목록입니다.</p>
+        </div>
+        {productsQuery.isPending && <div className="h-40 animate-pulse bg-slate-50" />}
+        {productsQuery.isError && <p className="p-10 text-center text-sm text-red-600">일반 상품을 불러오지 못했습니다.</p>}
+        {!productsQuery.isPending && !productsQuery.isError && products.length === 0 && <p className="p-10 text-center text-sm text-slate-500">조회되는 일반 상품이 없습니다.</p>}
+        {products.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">상품</th><th className="px-5 py-3">카테고리</th><th className="px-5 py-3">판매가</th><th className="px-5 py-3">상품 ID</th></tr></thead><tbody className="divide-y divide-slate-100">{products.map((product) => <tr key={product.productId}><td className="px-5 py-4 font-semibold">{product.name}</td><td className="px-5 py-4 text-slate-500">{product.category}</td><td className="px-5 py-4">{money(product.price)}</td><td className="px-5 py-4 font-mono text-xs">{product.productId}</td></tr>)}</tbody></table></div>}
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">타임딜 상품</h2><p className="mt-1 text-sm text-slate-500">활성·예약된 타임딜을 별도 영역에서 조회합니다.</p></div>
+        {activeTimeDealsQuery.isPending || scheduledTimeDealsQuery.isPending ? <div className="h-40 animate-pulse bg-slate-50" /> : activeTimeDealsQuery.isError || scheduledTimeDealsQuery.isError ? <p className="p-10 text-center text-sm text-red-600">타임딜 상품을 불러오지 못했습니다.</p> : timeDeals.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">조회되는 타임딜 상품이 없습니다.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">상품</th><th className="px-5 py-3">상태</th><th className="px-5 py-3">판매가</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">판매 기간</th></tr></thead><tbody className="divide-y divide-slate-100">{timeDeals.map((deal) => <tr key={deal.timeDealId}><td className="px-5 py-4 font-semibold">{deal.name}</td><td className="px-5 py-4"><StatusBadge tone={deal.status === 'ACTIVE' ? 'green' : 'orange'}>{deal.status}</StatusBadge></td><td className="px-5 py-4">{money(deal.dealPrice)}</td><td className="px-5 py-4">{deal.stock.availableQuantity}개</td><td className="px-5 py-4 text-xs text-slate-500">{new Date(deal.startAt).toLocaleString('ko-KR')}<br />~ {new Date(deal.endAt).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div>}
+      </div>
+    </section>
+  )
+}
+
+function AdminOrderRefundManagement() {
+  return (
+    <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+      <h2 className="font-bold text-slate-700">주문·환불 운영</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        관리자용 전체 주문 목록 API가 준비되면 주문별 상품 상태와 환불 요청·완료 정보를 연결할 예정입니다.
+      </p>
+      <StatusBadge tone="orange">추후 개발 예정</StatusBadge>
+    </section>
+  )
+}
+
+function AdminStockManagement() {
+  const stocksQuery = useSellerStocks(1, 50)
+  const stocks = stocksQuery.data?.content ?? []
+
+  return (
+    <section className="mt-8 space-y-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="font-bold">일반 상품 재고</h2>
+        <p className="mt-1 text-sm text-slate-500">관리자 권한으로 전체 일반 상품의 재고 현황을 조회합니다.</p>
+        {stocksQuery.isPending && <div className="mt-5 h-40 animate-pulse rounded-xl bg-slate-100" />}
+        {stocksQuery.isError && <p className="mt-5 text-sm text-red-600">일반 상품 재고를 불러오지 못했습니다.</p>}
+        {!stocksQuery.isPending && !stocksQuery.isError && stocks.length === 0 && <p className="mt-5 rounded-xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">조회할 일반 상품 재고가 없습니다.</p>}
+        {stocks.length > 0 && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr><th className="px-5 py-3">상품 ID</th><th className="px-5 py-3">총 재고</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">상태</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stocks.map((stock) => (
+                  <tr key={stock.stockId}>
+                    <td className="px-5 py-4 font-mono text-xs">{stock.productId}</td>
+                    <td className="px-5 py-4">{stock.totalQuantity}개</td>
+                    <td className="px-5 py-4">{stock.availableQuantity}개</td>
+                    <td className="px-5 py-4"><StatusBadge tone={stock.status === 'AVAILABLE' ? 'green' : 'orange'}>{stock.status}</StatusBadge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+        <h2 className="font-bold text-slate-700">타임딜 재고</h2>
+        <p className="mt-2 text-sm text-slate-500">관리자용 타임딜 전체 재고 조회 API가 준비되면 연결할 예정입니다.</p>
+        <StatusBadge tone="orange">추후 개발 예정</StatusBadge>
+      </div>
+    </section>
+  )
+}
+
 function DashboardPage({
   role,
   section = 'dashboard',
@@ -2914,7 +3049,6 @@ function DashboardPage({
                     : seller
                       ? '판매자 대시보드'
                       : '운영 대시보드'
-  const productRows = products.slice(0, 4)
   return (
     <DashboardLayout role={role}>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -2955,6 +3089,11 @@ function DashboardPage({
           ))}
         </div>
       )}
+      {section === 'dashboard' && !seller && (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-4 text-sm text-slate-500">
+          현재 대시보드 지표는 샘플 데이터입니다. 전체 회원·주문·환불 집계를 위해 관리자 대시보드 API가 필요하며, API 연결은 추후 개발 예정입니다.
+        </div>
+      )}
       {seller && section === 'products' && <SellerProductManagement />}
       {seller && section === 'stocks' && <SellerStockManagement />}
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
@@ -2962,65 +3101,12 @@ function DashboardPage({
       {seller && section === 'orders' && <SellerOrderManagement />}
       {seller && section === 'refunds' && <SellerRefundManagement />}
       {seller && section === 'settlements' && <SellerSettlementManagement />}
-      {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
-        <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="font-bold">{section.includes('stocks') ? '재고 현황' : '상품 목록'}</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">상품</th>
-                  <th className="px-5 py-3">카테고리</th>
-                  <th className="px-5 py-3">판매가</th>
-                  <th className="px-5 py-3">재고</th>
-                  <th className="px-5 py-3">상태</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {productRows.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-5 py-4 font-semibold text-slate-900">{product.name}</td>
-                    <td className="px-5 py-4 text-slate-500">{product.category}</td>
-                    <td className="px-5 py-4">{money(product.price)}</td>
-                    <td className="px-5 py-4">{product.stock}개</td>
-                    <td className="px-5 py-4">
-                      <StatusBadge tone={product.stock < 10 ? 'orange' : 'green'}>
-                        {product.stock < 10 ? '재고 임박' : '판매 중'}
-                      </StatusBadge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {!seller && section === 'admin-products' && <AdminProductManagement />}
+      {!seller && section === 'admin-stocks' && <AdminStockManagement />}
       {section === 'sellers' && (
         <AdminSellerApplications />
       )}
-      {!seller && section === 'admin-orders' && (
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4 font-bold">최근 주문</div>
-          {['P-20250918-001', 'P-20250918-002', 'P-20250917-031'].map((id, index) => (
-            <div
-              key={id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 last:border-0"
-            >
-              <div>
-                <p className="font-bold">{id}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {['논산 설향 딸기 외 1건', '무농약 남해 시금치', '못난이 햇감자'][index]}
-                </p>
-              </div>
-              <StatusBadge tone={index === 2 ? 'blue' : 'orange'}>
-                {index === 2 ? '배송 중' : '처리 필요'}
-              </StatusBadge>
-            </div>
-          ))}
-        </div>
-      )}
+      {!seller && section === 'admin-orders' && <AdminOrderRefundManagement />}
       {!seller && section === 'settlements' && <AdminSettlementManagement />}
     </DashboardLayout>
   )
@@ -3674,6 +3760,7 @@ function App() {
       <Route path="/admin/login" element={<AuthPage />} />
       <Route path="/seller/login" element={<SellerLoginPage />} />
       <Route path="/seller/apply" element={<SellerApplyPage />} />
+      <Route path="/seller/reapply" element={<SellerReapplyPage />} />
       <Route path="/seller" element={<SellerAccessPage />} />
       <Route path="/seller/products" element={<SellerAccessPage section="products" />} />
       <Route path="/seller/stocks" element={<SellerAccessPage section="stocks" />} />

@@ -63,10 +63,10 @@ export function useSellerProduct(productId: string | undefined) {
   })
 }
 
-export function useSellerStocks(page = 1) {
+export function useSellerStocks(page = 1, size: 10 | 30 | 50 = 10) {
   return useQuery({
-    queryKey: sellerProductKeys.stocks(page),
-    queryFn: () => getSellerStocks({ page }),
+    queryKey: ['seller-products', 'stocks', page, size],
+    queryFn: () => getSellerStocks({ page, size }),
   })
 }
 

@@ -24,6 +24,29 @@ export type SellerApplicationStatus = {
   processedAt: string | null
 }
 
+export type SellerProfile = {
+  id: string
+  loginId: string
+  companyName: string
+  bizRegNo: string
+  repName: string
+  bizAddress: string
+  managerName: string
+  managerPhone: string
+  managerEmail: string
+  slackId: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+}
+
+export type SellerUpdateInput = {
+  companyName: string
+  bizAddress: string
+  managerName: string
+  managerPhone: string
+  managerEmail: string
+  slackId?: string
+}
+
 export async function sellerLogin(request: SellerLoginRequest) {
   const response = await apiClient.post<ApiResponse<TokenResponse>>(
     '/api/v1/auth/login/seller',
@@ -41,6 +64,19 @@ export async function applyAsSeller(request: SellerApplicationRequest) {
 export async function getMySellerApplicationStatus() {
   const response = await apiClient.get<ApiResponse<SellerApplicationStatus>>(
     '/api/v1/sellers/me/application',
+  )
+  return response.data.data
+}
+
+export async function getMySellerInfo() {
+  const response = await apiClient.get<ApiResponse<SellerProfile>>('/api/v1/sellers/me')
+  return response.data.data
+}
+
+export async function updateMySellerInfo(sellerId: string, input: SellerUpdateInput) {
+  const response = await apiClient.patch<ApiResponse<SellerProfile>>(
+    `/api/v1/sellers/${sellerId}`,
+    input,
   )
   return response.data.data
 }
