@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { adminLogin, login, logout, signup } from './features/auth/api'
@@ -28,6 +28,8 @@ import { useProduct, useProducts } from './features/products/hooks'
 import { useCancelRefund, useRefunds, useRequestRefund } from './features/refunds/hooks'
 import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
+import { useAdminSettlements, useSellerSettlements } from './features/settlements/hooks'
+import type { SettlementStatus } from './features/settlements/api'
 import {
   useAddresses,
   useCreateAddress,
@@ -1409,6 +1411,7 @@ function CheckoutPage() {
     paymentMutation.isPending ||
     confirmPaymentMutation.isPending ||
     paymentProcessing
+  const checkoutDataLoading = userQuery.isPending || addressesQuery.isPending
 
   if (submitted)
     return (
@@ -1469,13 +1472,20 @@ function CheckoutPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-bold">배송 정보</h2>
-              {savedAddresses.length > 0 && (
+              {checkoutDataLoading && (
+                <div className="mt-5 animate-pulse space-y-2" aria-label="배송지 불러오는 중">
+                  <div className="h-3 w-24 rounded bg-slate-200" />
+                  <div className="h-16 rounded-xl bg-slate-100" />
+                </div>
+              )}
+              {!checkoutDataLoading && savedAddresses.length > 0 && (
                 <div className="mt-5 space-y-2">
                   <p className="text-xs font-semibold text-slate-500">저장된 배송지</p>
                   {savedAddresses.map((address) => (
                     <button
                       key={address.addressId}
                       type="button"
+                      disabled={orderPending}
                       onClick={() => applySavedAddress(address)}
                       aria-pressed={selectedAddressId === address.addressId}
                       className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${selectedAddressId === address.addressId ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200 hover:border-emerald-300'}`}
@@ -1495,6 +1505,7 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="받는 분"
+                  disabled={checkoutDataLoading || orderPending}
                   value={effectiveRecipient.recipientName}
                   onChange={(event) =>
                     setRecipient({ ...recipient, recipientName: event.target.value })
@@ -1503,6 +1514,7 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="연락처"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.recipientPhone}
                   onChange={(event) =>
                     setRecipient({ ...recipient, recipientPhone: event.target.value })
@@ -1511,12 +1523,14 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="우편번호"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.zipCode}
                   onChange={(event) => setRecipient({ ...recipient, zipCode: event.target.value })}
                 />
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="기본 주소"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.addressBase}
                   onChange={(event) =>
                     setRecipient({ ...recipient, addressBase: event.target.value })
@@ -1525,6 +1539,7 @@ function CheckoutPage() {
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="상세 주소"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.addressDetail}
                   onChange={(event) =>
                     setRecipient({ ...recipient, addressDetail: event.target.value })
@@ -1533,6 +1548,7 @@ function CheckoutPage() {
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="배송 요청사항 (선택)"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.deliveryRequest}
                   onChange={(event) =>
                     setRecipient({ ...recipient, deliveryRequest: event.target.value })
@@ -1542,7 +1558,7 @@ function CheckoutPage() {
                   <p className="text-xs text-slate-500">입력한 배송지를 다음 주문에도 사용할 수 있습니다.</p>
                   <button
                     type="button"
-                    disabled={createAddressMutation.isPending || !effectiveRecipient.addressBase}
+                    disabled={checkoutDataLoading || orderPending || createAddressMutation.isPending || !effectiveRecipient.addressBase}
                     onClick={saveCurrentAddress}
                     className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1585,11 +1601,11 @@ function CheckoutPage() {
             {validationError && <p className="mt-4 text-xs text-red-300">{validationError}</p>}
             <button
               type="button"
-              disabled={orderPending}
+              disabled={checkoutDataLoading || orderPending}
               onClick={() => void submitOrder()}
               className="mt-7 w-full rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {orderPending ? '주문 처리 중...' : `${money(totalAmount)} 결제 준비`}
+              {checkoutDataLoading ? '배송지 정보를 불러오는 중...' : orderPending ? '주문 처리 중...' : `${money(totalAmount)} 결제 준비`}
             </button>
           </aside>
         </div>
@@ -1827,6 +1843,7 @@ function MyPage() {
   const [slackId, setSlackId] = useState('')
   const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const addressFormRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (userQuery.data) {
@@ -1834,6 +1851,12 @@ function MyPage() {
       setSlackId(userQuery.data.slackId ?? '')
     }
   }, [userQuery.data])
+
+  useEffect(() => {
+    if (editingAddressId) {
+      addressFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [editingAddressId])
 
   if (!isAuthenticated) {
     return (
@@ -1949,7 +1972,10 @@ function MyPage() {
                 <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">저장된 배송지가 없습니다.</p>
               )}
               {addresses.map((address) => (
-                <div key={address.addressId} className="rounded-xl border border-slate-200 p-4">
+                <div
+                  key={address.addressId}
+                  className={`rounded-xl border p-4 transition ${editingAddressId === address.addressId ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200'}`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-bold">{address.addressName || '배송지'}</p>
@@ -1968,7 +1994,7 @@ function MyPage() {
                 </div>
               ))}
             </div>
-            <form className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2" onSubmit={saveAddress}>
+            <form ref={addressFormRef} className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2" onSubmit={saveAddress}>
               <h3 className="sm:col-span-2 font-bold">{editingAddressId ? '배송지 수정' : '배송지 추가'}</h3>
               {([
                 ['addressName', '배송지 이름'],
@@ -2898,6 +2924,7 @@ function DashboardPage({
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
       {seller && section === 'time-deal-stocks' && <SellerTimeDealStockManagement />}
       {seller && section === 'orders' && <SellerOrderManagement />}
+      {seller && section === 'settlements' && <SellerSettlementManagement />}
       {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4">
@@ -2957,7 +2984,156 @@ function DashboardPage({
           ))}
         </div>
       )}
+      {!seller && section === 'settlements' && <AdminSettlementManagement />}
     </DashboardLayout>
+  )
+}
+
+function settlementStatusLabel(status: SettlementStatus) {
+  return status === 'PENDING' ? '정산 예정' : '정산 완료'
+}
+
+function settlementStatusTone(status: SettlementStatus): 'orange' | 'green' {
+  return status === 'PENDING' ? 'orange' : 'green'
+}
+
+function SettlementStatusSelect({
+  value,
+  onChange,
+}: {
+  value: SettlementStatus
+  onChange: (value: SettlementStatus) => void
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value as SettlementStatus)}
+      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+    >
+      <option value="PENDING">정산 예정</option>
+      <option value="COMPLETED">정산 완료</option>
+    </select>
+  )
+}
+
+function SellerSettlementManagement() {
+  const [status, setStatus] = useState<SettlementStatus>('PENDING')
+  const settlementsQuery = useSellerSettlements(status)
+  const settlements = settlementsQuery.data?.content ?? []
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="font-bold">내 정산 내역</h2>
+          <p className="mt-1 text-xs text-slate-500">구매확정된 내 상품의 정산 예정·완료 내역입니다.</p>
+        </div>
+        <SettlementStatusSelect value={status} onChange={setStatus} />
+      </div>
+      {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
+      {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">정산 목록을 불러오지 못했습니다.</p>}
+      {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
+        <p className="p-10 text-center text-sm text-slate-500">조회할 정산 내역이 없습니다.</p>
+      )}
+      {settlements.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-5 py-3">정산 ID</th>
+                <th className="px-5 py-3">주문상품 ID</th>
+                <th className="px-5 py-3">판매 금액</th>
+                <th className="px-5 py-3">정산 금액</th>
+                <th className="px-5 py-3">상태</th>
+                <th className="px-5 py-3">정산 가능일</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {settlements.map((settlement) => (
+                <tr key={settlement.settlementId}>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
+                  <td className="px-5 py-4">{money(settlement.salesAmount)}</td>
+                  <td className="px-5 py-4 font-bold">{money(settlement.settlementAmount)}</td>
+                  <td className="px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(settlement.eligibleAt).toLocaleDateString('ko-KR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function AdminSettlementManagement() {
+  const [status, setStatus] = useState<SettlementStatus>('PENDING')
+  const [page, setPage] = useState(0)
+  const settlementsQuery = useAdminSettlements(status, page)
+  const settlements = settlementsQuery.data?.content ?? []
+  const pageInfo = settlementsQuery.data?.pageInfo
+
+  function changeStatus(nextStatus: SettlementStatus) {
+    setStatus(nextStatus)
+    setPage(0)
+  }
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="font-bold">전체 정산 운영</h2>
+          <p className="mt-1 text-xs text-slate-500">모든 판매자의 정산 상태와 금액을 조회합니다.</p>
+        </div>
+        <SettlementStatusSelect value={status} onChange={changeStatus} />
+      </div>
+      {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
+      {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">전체 정산 목록을 불러오지 못했습니다.</p>}
+      {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
+        <p className="p-10 text-center text-sm text-slate-500">조회할 정산 내역이 없습니다.</p>
+      )}
+      {settlements.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-5 py-3">정산 ID</th>
+                <th className="px-5 py-3">판매자 ID</th>
+                <th className="px-5 py-3">주문상품 ID</th>
+                <th className="px-5 py-3">판매 금액</th>
+                <th className="px-5 py-3">정산 금액</th>
+                <th className="px-5 py-3">상태</th>
+                <th className="px-5 py-3">생성일</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {settlements.map((settlement) => (
+                <tr key={settlement.settlementId}>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.sellerId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
+                  <td className="px-5 py-4">{money(settlement.salesAmount)}</td>
+                  <td className="px-5 py-4 font-bold">{money(settlement.settlementAmount)}</td>
+                  <td className="px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pageInfo && pageInfo.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm">
+          <span className="text-slate-500">총 {pageInfo.totalElements}건</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg bg-slate-100 px-3 py-2 font-bold disabled:opacity-40">이전</button>
+            <span className="px-2 py-2 text-slate-500">{page + 1} / {pageInfo.totalPages}</span>
+            <button type="button" disabled={pageInfo.last} onClick={() => setPage((current) => current + 1)} className="rounded-lg bg-slate-100 px-3 py-2 font-bold disabled:opacity-40">다음</button>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
