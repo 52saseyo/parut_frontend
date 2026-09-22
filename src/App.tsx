@@ -1039,14 +1039,22 @@ function OrderDetailPage() {
   const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
   const firstOrderItem = firstDeliveryGroup?.items[0]
   const firstOrderItemId = firstOrderItem?.orderItemId
-  const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
   const currentRefund = refundsQuery.data?.content.find(
     (refund) => refund.orderItemId === firstOrderItemId,
+  )
+  const deliveryCompleted = firstDeliveryGroup?.groupStatus === 'DELIVERED'
+  const refundRequested = currentRefund?.status === 'REQUESTED' || firstOrderItem?.itemStatus === 'REFUND_REQUESTED'
+  const canRequestRefund = Boolean(
+    firstOrderItemId &&
+      deliveryCompleted &&
+      firstOrderItem.refundable &&
+      (!currentRefund || currentRefund.status === 'CANCELED' || currentRefund.status === 'REJECTED'),
   )
   const canConfirmOrderItem = Boolean(
     orderId &&
       firstOrderItemId &&
-      firstDeliveryGroup?.groupStatus === 'DELIVERED' &&
+      deliveryCompleted &&
+      !refundRequested &&
       firstOrderItem?.itemStatus === 'ORDERED',
   )
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
@@ -1188,41 +1196,46 @@ function OrderDetailPage() {
             {confirmOrderItemMutation.isError && (
               <p className="mt-3 text-xs text-rose-300">구매확정에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
             )}
-            <button
-              type="button"
-              disabled={!canRequestRefund || refundMutation.isPending}
-              onClick={() =>
-                firstOrderItemId &&
-                refundMutation.mutate({
-                  orderItemId: firstOrderItemId,
-                  reason: '고객 환불 요청',
-                })
-              }
-              className="mt-7 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {refundMutation.isPending
-                ? '환불 요청 중...'
-                : firstOrderItem?.refundable === false
-                  ? '환불 불가'
-                  : '환불 요청'}
-            </button>
-            {!canRequestRefund && !refundMutation.isPending && (
-              <p className="mt-3 text-xs text-slate-400">
-                환불 가능한 주문 상품에서만 요청할 수 있습니다.
-              </p>
-            )}
-            {refundMutation.isSuccess && (
-              <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
-            )}
-            {currentRefund?.status === 'REQUESTED' && (
+            {currentRefund?.status === 'REQUESTED' ? (
               <button
                 type="button"
                 disabled={cancelRefundMutation.isPending}
                 onClick={() => cancelRefundMutation.mutate(currentRefund.refundId)}
-                className="mt-3 w-full rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                className="mt-7 w-full rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
                 {cancelRefundMutation.isPending ? '환불 취소 중...' : '환불 요청 취소'}
               </button>
+            ) : (
+              <button
+                type="button"
+                disabled={!canRequestRefund || refundMutation.isPending}
+                onClick={() =>
+                  firstOrderItemId &&
+                  refundMutation.mutate({
+                    orderItemId: firstOrderItemId,
+                    reason: '고객 환불 요청',
+                  })
+                }
+                className="mt-7 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {refundMutation.isPending
+                  ? '환불 요청 중...'
+                  : !deliveryCompleted
+                    ? '배송 완료 후 환불 요청'
+                    : firstOrderItem?.refundable === false
+                      ? '환불 불가'
+                      : currentRefund?.status === 'CANCELED'
+                        ? '환불 다시 요청'
+                        : '환불 요청'}
+              </button>
+            )}
+            {!canRequestRefund && currentRefund?.status !== 'REQUESTED' && !refundMutation.isPending && (
+              <p className="mt-3 text-xs text-slate-400">
+                배송 완료된 환불 가능한 주문 상품에서만 요청할 수 있습니다.
+              </p>
+            )}
+            {refundMutation.isSuccess && (
+              <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
             )}
             {currentRefund && currentRefund.status !== 'REQUESTED' && (
               <p className="mt-3 text-xs text-slate-400">환불 상태: {currentRefund.status}</p>
@@ -3362,6 +3375,13 @@ function SellerRefundManagement() {
     })
   }
 
+  function approveOne(refundId: string) {
+    approveMutation.mutate([refundId], {
+      onSuccess: () => setMessage('환불 요청을 승인했습니다.'),
+      onError: () => setMessage('환불 승인에 실패했습니다. 요청 상태를 확인해주세요.'),
+    })
+  }
+
   return (
     <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -3400,7 +3420,12 @@ function SellerRefundManagement() {
                   <td className="px-5 py-4 font-bold">{money(refund.refundAmount)}</td>
                   <td className="max-w-xs px-5 py-4 text-slate-600">{refund.reason}</td>
                   <td className="px-5 py-4 text-xs text-slate-500">{new Date(refund.requestedAt).toLocaleString('ko-KR')}</td>
-                  <td className="px-5 py-4"><button type="button" disabled={mutationPending} onClick={() => rejectOne(refund)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40">{rejectMutation.isPending ? '처리 중...' : '거절'}</button></td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-2">
+                      <button type="button" disabled={mutationPending} onClick={() => approveOne(refund.refundId)} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40">승인</button>
+                      <button type="button" disabled={mutationPending} onClick={() => rejectOne(refund)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40">거절</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
