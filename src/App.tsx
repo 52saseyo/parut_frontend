@@ -18,6 +18,7 @@ import {
   useCreateTimeDealOrder,
   useConfirmPayment,
   useOrder,
+  useOrders,
   usePreparePayment,
 } from './features/orders/hooks'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
@@ -869,32 +870,73 @@ function ProductDetailPage({ timeDeal = false }: { timeDeal?: boolean }) {
 
 function OrdersPage() {
   const isAuthenticated = Boolean(authStorage.getAccessToken())
-  const orders = [
-    {
-      id: 'P-20250918-001',
-      date: '2025.09.18',
-      product: '논산 설향 딸기 외 1건',
-      amount: 25800,
-      status: '배송 준비 중',
-      tone: 'orange' as const,
-    },
-    {
-      id: 'P-20250912-014',
-      date: '2025.09.12',
-      product: '무농약 남해 시금치',
-      amount: 3900,
-      status: '배송 완료',
-      tone: 'green' as const,
-    },
-  ]
+  const ordersQuery = useOrders(isAuthenticated)
+  const orders = ordersQuery.data?.content.reduce<
+    Array<{
+      id: string
+      date: string
+      product: string
+      itemCount: number
+      amount: number
+      status: string
+      tone: 'green' | 'orange' | 'blue' | 'red' | 'slate'
+    }>
+  >((grouped, item) => {
+    const order = grouped.find((current) => current.id === item.orderId)
+    const status =
+      item.groupStatus === 'DELIVERED'
+        ? { label: '배송 완료', tone: 'green' as const }
+        : item.groupStatus === 'SHIPPED'
+          ? { label: '배송 중', tone: 'blue' as const }
+          : item.itemStatus === 'CANCELED' || item.itemStatus === 'REFUNDED'
+            ? { label: '취소·환불', tone: 'red' as const }
+            : { label: '배송 준비 중', tone: 'orange' as const }
+
+    if (order) {
+      order.itemCount += 1
+      order.amount += item.unitPrice * item.quantity
+      return grouped
+    }
+
+    grouped.push({
+      id: item.orderId,
+      date: new Date(item.orderedAt).toLocaleDateString('ko-KR'),
+      product: item.productName,
+      itemCount: 1,
+      amount: item.unitPrice * item.quantity,
+      status: status.label,
+      tone: status.tone,
+    })
+    return grouped
+  }, []) ?? []
+
   return (
     <PublicLayout>
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
         <p className="text-sm font-bold text-emerald-700">MY PARUT</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">주문 내역</h1>
         {isAuthenticated ? (
-          <div className="mt-8 space-y-4">
-            {orders.map((order) => (
+          ordersQuery.isPending ? (
+            <OrderListSkeleton />
+          ) : ordersQuery.isError ? (
+            <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-6 py-12 text-center text-sm text-red-700">
+              주문 내역을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
+              <div className="text-5xl">📦</div>
+              <h2 className="mt-5 text-xl font-black text-slate-950">아직 주문 내역이 없습니다</h2>
+              <p className="mt-3 text-sm text-slate-500">마음에 드는 상품을 찾아 첫 주문을 시작해보세요.</p>
+              <Link
+                to="/products"
+                className="mt-7 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800"
+              >
+                상품 보러 가기
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-8 space-y-4">
+              {orders.map((order) => (
               <Link
                 to={`/orders/${order.id}`}
                 key={order.id}
@@ -905,7 +947,10 @@ function OrdersPage() {
                     <p className="text-xs text-slate-500">
                       {order.date} · {order.id}
                     </p>
-                    <p className="mt-2 font-bold text-slate-950">{order.product}</p>
+                    <p className="mt-2 font-bold text-slate-950">
+                      {order.product}
+                      {order.itemCount > 1 ? ` 외 ${order.itemCount - 1}건` : ''}
+                    </p>
                   </div>
                   <StatusBadge tone={order.tone}>{order.status}</StatusBadge>
                 </div>
@@ -914,8 +959,9 @@ function OrdersPage() {
                   <strong>{money(order.amount)}</strong>
                 </div>
               </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : (
           <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-16 text-center">
             <div className="text-5xl">🔐</div>
@@ -935,6 +981,27 @@ function OrdersPage() {
         )}
       </main>
     </PublicLayout>
+  )
+}
+
+function OrderListSkeleton() {
+  return (
+    <div className="mt-8 space-y-4" aria-label="주문 내역을 불러오는 중입니다.">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div key={index} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="w-full space-y-3">
+              <div className="h-3 w-40 rounded bg-slate-200" />
+              <div className="h-5 w-64 max-w-full rounded bg-slate-200" />
+            </div>
+            <div className="h-6 w-24 rounded-full bg-slate-200" />
+          </div>
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="ml-auto h-5 w-24 rounded bg-slate-200" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

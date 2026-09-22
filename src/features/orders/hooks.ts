@@ -5,6 +5,7 @@ import {
   createOrder,
   createTimeDealOrder,
   getOrder,
+  getOrders,
   preparePayment,
   type CreateOrderInput,
   type CreateTimeDealOrderInput,
@@ -12,7 +13,16 @@ import {
 
 export const orderKeys = {
   all: ['orders'] as const,
+  list: () => ['orders', 'list'] as const,
   detail: (orderId: string) => ['orders', 'detail', orderId] as const,
+}
+
+export function useOrders(enabled = true) {
+  return useQuery({
+    queryKey: orderKeys.list(),
+    queryFn: getOrders,
+    enabled,
+  })
 }
 
 export function useCreateOrder() {

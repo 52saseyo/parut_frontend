@@ -74,6 +74,34 @@ export type OrderDetailResponse = {
   }>
 }
 
+export type OrderListItem = {
+  orderItemId: string
+  orderId: string
+  orderNo: string
+  orderType: 'NORMAL' | 'TIME_DEAL'
+  orderStatus: 'CREATED' | 'STOCK_RESERVED' | 'PAYMENT_PENDING' | 'PAID' | 'ABORTED'
+  orderedAt: string
+  paidAt: string | null
+  deliveryGroupId: string
+  sellerId: string
+  groupStatus: 'PENDING' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'CANCELED'
+  productName: string
+  quantity: number
+  unitPrice: number
+  itemStatus: 'ORDERED' | 'CANCELED' | 'REFUND_REQUESTED' | 'REFUNDED' | 'CONFIRMED'
+}
+
+export type OrderListResponse = {
+  content: OrderListItem[]
+  pageInfo: {
+    nextCursor: string | null
+    nextIdAfter: string | null
+    hasNext: boolean
+    sortBy: string
+    sortDirection: 'ASC' | 'DESC'
+  }
+}
+
 export type PaymentReadyResponse = {
   paymentId: string
   tossOrderId: string
@@ -133,6 +161,13 @@ export async function getOrder(orderId: string) {
   const response = await apiClient.get<ApiResponse<OrderDetailResponse>>(
     `/api/v1/orders/${orderId}`,
   )
+  return response.data.data
+}
+
+export async function getOrders() {
+  const response = await apiClient.get<ApiResponse<OrderListResponse>>('/api/v1/orders', {
+    params: { size: 10 },
+  })
   return response.data.data
 }
 
