@@ -18,7 +18,6 @@ import {
   useCreateTimeDealOrder,
   useConfirmPayment,
   useConfirmOrderItem,
-  useAdminOrderDetails,
   useOrder,
   useOrders,
   usePreparePayment,
@@ -28,7 +27,7 @@ import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useApproveRefunds, useCancelRefund, useRefunds, useRejectRefund, useRequestRefund } from './features/refunds/hooks'
 import type { Refund } from './features/refunds/api'
-import { useAdminDeliveries, useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
+import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
 import { useAdminSettlements, useCompleteSettlements, useSellerSettlements } from './features/settlements/hooks'
 import type { SettlementStatus } from './features/settlements/api'
@@ -2885,15 +2884,13 @@ function AdminProductManagement() {
 }
 
 function AdminOrderRefundManagement() {
-  const deliveriesQuery = useAdminDeliveries()
-  const orderIds = Array.from(new Set((deliveriesQuery.data?.content ?? []).map((delivery) => delivery.orderId)))
-  const orderQueries = useAdminOrderDetails(orderIds, !deliveriesQuery.isPending && !deliveriesQuery.isError)
-  const orders = orderQueries.map((query) => query.data).filter((order): order is NonNullable<typeof order> => Boolean(order))
-
   return (
-    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">주문·환불 목록</h2><p className="mt-1 text-sm text-slate-500">주문별 상품 상태를 기준으로 환불 요청·완료 여부를 확인합니다.</p></div>
-      {deliveriesQuery.isPending || orderQueries.some((query) => query.isPending) ? <div className="h-48 animate-pulse bg-slate-50" /> : deliveriesQuery.isError || orderQueries.some((query) => query.isError) ? <p className="p-10 text-center text-sm text-red-600">관리자 주문 목록을 불러오지 못했습니다.</p> : orders.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">조회되는 주문이 없습니다.</p> : <div className="divide-y divide-slate-100">{orders.map((order) => <div key={order.orderId} className="p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-bold">{order.orderNo}</p><p className="mt-1 font-mono text-xs text-slate-400">{order.orderId}</p></div><StatusBadge tone={order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUND_REQUESTED' || item.itemStatus === 'REFUNDED')) ? 'orange' : 'green'}>{order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUND_REQUESTED')) ? '환불 요청' : order.deliveryGroups.some((group) => group.items.some((item) => item.itemStatus === 'REFUNDED')) ? '환불 완료' : '환불 없음'}</StatusBadge></div><div className="mt-4 space-y-2">{order.deliveryGroups.flatMap((group) => group.items).map((item) => <div key={item.orderItemId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm"><span className="font-semibold">{item.productName} · {item.quantity}개</span><span className="text-xs text-slate-500">상품 상태: <strong className="text-slate-700">{item.itemStatus}</strong></span></div>)}</div></div>)}</div>}
+    <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+      <h2 className="font-bold text-slate-700">주문·환불 운영</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        관리자용 전체 주문 목록 API가 준비되면 주문별 상품 상태와 환불 요청·완료 정보를 연결할 예정입니다.
+      </p>
+      <StatusBadge tone="orange">추후 개발 예정</StatusBadge>
     </section>
   )
 }
@@ -3035,6 +3032,11 @@ function DashboardPage({
               <p className="mt-2 text-xs text-emerald-700">{note}</p>
             </div>
           ))}
+        </div>
+      )}
+      {section === 'dashboard' && !seller && (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-4 text-sm text-slate-500">
+          현재 대시보드 지표는 샘플 데이터입니다. 전체 회원·주문·환불 집계를 위해 관리자 대시보드 API가 필요하며, API 연결은 추후 개발 예정입니다.
         </div>
       )}
       {seller && section === 'products' && <SellerProductManagement />}

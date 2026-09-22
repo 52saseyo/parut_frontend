@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmOrderItem,
   confirmPayment,
@@ -40,16 +40,6 @@ export function useOrder(orderId: string | undefined) {
     queryKey: orderKeys.detail(orderId ?? ''),
     queryFn: () => getOrder(orderId ?? ''),
     enabled: Boolean(orderId),
-  })
-}
-
-export function useAdminOrderDetails(orderIds: string[], enabled = true) {
-  return useQueries({
-    queries: orderIds.map((orderId) => ({
-      queryKey: orderKeys.detail(`admin-${orderId}`),
-      queryFn: () => getOrder(orderId),
-      enabled,
-    })),
   })
 }
 
