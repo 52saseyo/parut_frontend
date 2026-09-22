@@ -45,6 +45,18 @@ export async function logout() {
     await apiClient.post<ApiResponse<null>>('/api/v1/auth/logout')
   } finally {
     authStorage.clear()
+    //window.location.href = '/login'
+    // 각 권한에 맞는 로그인페이지로 이동
+    // 현재 접속 중인 URL 경로를 확인
+    const currentPath = window.location.pathname;
+    
+    if (currentPath.startsWith('/seller')) {
+      window.location.href = '/seller/login';   // 판매자
+    } else if (currentPath.startsWith('/admin')) {
+      window.location.href = '/admin/login';  //관리자
+    } else {
+      window.location.href = '/login'; // 고객
+    }
   }
 }
 
