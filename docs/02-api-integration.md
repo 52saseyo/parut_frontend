@@ -36,7 +36,7 @@ VITE_API_BASE_URL=http://localhost:8080
 - 서버 데이터 조회는 TanStack Query를 통해 처리합니다.
 - 데이터 변경은 mutation으로 처리하고 성공 시 관련 query를 무효화합니다.
 
-현재 구현된 API 모듈은 `src/features/auth`, `src/features/products`, `src/features/timedeals`, `src/features/seller-products`에 있습니다. 일반 상품과 타임딜의 목록·상세 화면은 API 응답만 사용하며, 데이터가 없을 때는 빈 상태를 표시합니다. 판매자 타임딜 관리 화면은 판매자 전용 목록·관리·재고 API를 사용합니다. 고객 주문 목록도 `src/features/orders`의 API를 사용하며, 로딩·빈 상태·오류 상태를 구분합니다. 일부 판매자 대시보드에 남아 있는 목업 데이터는 해당 API 연결 작업 전까지의 화면 보조 데이터입니다.
+현재 구현된 API 모듈은 `src/features/auth`, `src/features/products`, `src/features/timedeals`, `src/features/seller-products`, `src/features/addresses`에 있습니다. 일반 상품과 타임딜의 목록·상세 화면은 API 응답만 사용하며, 데이터가 없을 때는 빈 상태를 표시합니다. 판매자 타임딜 관리 화면은 판매자 전용 목록·관리·재고 API를 사용합니다. 고객 주문 목록·배송·구매확정·환불 조회도 API를 사용하며, 로딩·빈 상태·오류 상태를 구분합니다. 일부 판매자·관리자 대시보드에 남아 있는 목업 데이터는 해당 API 연결 작업 전까지의 화면 보조 데이터입니다.
 
 주문·결제 API는 `src/features/orders`에서 관리합니다.
 
@@ -58,18 +58,28 @@ checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 배송·환불 API는 `src/features/delivery`와 `src/features/refunds`에서 관리합니다.
 
 - `GET /api/v1/deliveries/{deliveryId}`: 배송 상세 조회
-- `GET /api/v1/deliveries?orderId={orderId}`: 판매자 주문별 배송 목록
+- `GET /api/v1/deliveries?orderId={orderId}`: 고객 또는 판매자 본인 배송 목록
 - `PATCH /api/v1/deliveries/{deliveryId}/ship`: 배송 시작
 
 판매자 주문·배송 화면은 `GET /api/v1/deliveries?size=10`으로 판매자 소유 배송 작업을 조회하고, `PREPARING` 상태 배송에 운송장 번호를 입력해 `PATCH /api/v1/deliveries/{deliveryId}/ship`을 호출합니다. 현재 배송 목록 응답에는 주문번호·상품명이 포함되지 않고 배송 ID·배송그룹 ID·상태·운송장 정보만 포함됩니다.
 - `POST /api/v1/order-items/{orderItemId}/refunds`: 환불 신청
+- `GET /api/v1/refunds`: 고객 또는 판매자 본인 환불 목록
+- `GET /api/v1/refunds/{refundId}`: 환불 상세 조회
 - `PATCH /api/v1/refunds/{refundId}/cancel`: 환불 신청 취소
 - `PATCH /api/v1/refunds/approve`: 판매자 환불 일괄 승인
 - `PATCH /api/v1/refunds/{refundId}/reject`: 판매자 환불 거절
 
 알림 서비스는 현재 domain과 enum만 있고 controller 및 외부 API가 백엔드에 구현되어 있지 않습니다. 따라서 프론트엔드에서는 알림 화면 구조만 유지하고, endpoint가 추가되면 `src/features/notifications`를 새로 연결합니다.
 
-배송지 자동 입력은 현재 `/api/v1/users/me`에서 사용자 이름만 조회합니다. 백엔드 `UserResponse`에 주소 필드와 배송지 조회 endpoint가 없으므로, 프론트엔드는 최근 입력한 배송지를 로컬 저장해 다음 checkout에 복원합니다. 계정 배송지 API가 추가되면 로컬 복원 로직을 서버 배송지 조회로 교체합니다.
+배송지는 `src/features/addresses`에서 관리합니다. checkout은 `GET /api/v1/users/me/addresses`로 저장 배송지를 조회하고, 선택한 배송지의 수령인 정보를 주문 요청의 `recipient`에 복사합니다. `/me` 마이페이지에서는 배송지 등록·수정·기본 변경·삭제를 모두 제공합니다.
+
+- `GET /api/v1/users/me/addresses`: 저장 배송지 목록
+- `POST /api/v1/users/me/addresses`: 배송지 등록
+- `PATCH /api/v1/users/me/addresses/{addressId}`: 배송지 수정
+- `PATCH /api/v1/users/me/addresses/{addressId}/default`: 기본 배송지 변경
+- `DELETE /api/v1/users/me/addresses/{addressId}`: 배송지 삭제
+
+내 정보는 `/me` 마이페이지에서 `GET /api/v1/users/me`, `PATCH /api/v1/users/{id}`, `DELETE /api/v1/users/{id}`를 사용합니다. 고객은 본인 정보만 수정·탈퇴할 수 있습니다.
 
 ## 상태 처리
 

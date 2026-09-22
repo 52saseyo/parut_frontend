@@ -18,6 +18,11 @@ export type UserProfile = {
   createdAt: string
 }
 
+export type UserUpdateInput = {
+  name: string
+  slackId?: string
+}
+
 export async function login(request: LoginRequest) {
   const response = await apiClient.post<ApiResponse<TokenResponse>>(
     '/api/v1/auth/login/user',
@@ -62,5 +67,15 @@ export async function logout() {
 
 export async function getMyInfo() {
   const response = await apiClient.get<ApiResponse<UserProfile>>('/api/v1/users/me')
+  return response.data.data
+}
+
+export async function updateMyInfo(userId: string, input: UserUpdateInput) {
+  const response = await apiClient.patch<ApiResponse<UserProfile>>(`/api/v1/users/${userId}`, input)
+  return response.data.data
+}
+
+export async function deleteMyInfo(userId: string) {
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/api/v1/users/${userId}`)
   return response.data.data
 }

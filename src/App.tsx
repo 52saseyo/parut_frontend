@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { adminLogin, login, logout, signup } from './features/auth/api'
-import { useMyInfo } from './features/auth/hooks'
+import { useDeleteMyInfo, useMyInfo, useUpdateMyInfo } from './features/auth/hooks'
 import { useProcessSellerApplication, useSellerApplications } from './features/admin/hooks'
 import type { SellerApplication, SellerStatus } from './features/admin/api'
 import {
@@ -17,15 +17,27 @@ import {
   useCreateOrder,
   useCreateTimeDealOrder,
   useConfirmPayment,
+  useConfirmOrderItem,
   useOrder,
   useOrders,
   usePreparePayment,
 } from './features/orders/hooks'
+import type { Recipient } from './features/orders/api'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
-import { useRequestRefund } from './features/refunds/hooks'
-import { useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
+import { useCancelRefund, useRefunds, useRequestRefund } from './features/refunds/hooks'
+import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
+import { useAdminSettlements, useSellerSettlements } from './features/settlements/hooks'
+import type { SettlementStatus } from './features/settlements/api'
+import {
+  useAddresses,
+  useCreateAddress,
+  useDeleteAddress,
+  useSetDefaultAddress,
+  useUpdateAddress,
+} from './features/addresses/hooks'
+import type { Address } from './features/addresses/api'
 import type { ApiTimeDeal, TimeDealListStatus, TimeDealStatus } from './features/timedeals/api'
 import { useTimeDeal, useTimeDeals } from './features/timedeals/hooks'
 import { authStorage } from './lib/api'
@@ -438,15 +450,23 @@ function Header() {
             관리자 센터
           </Link>
           {isAuthenticated ? (
-            <button
-              type="button"
-              onClick={() => {
-                void logout().finally(() => setIsAuthenticated(false))
-              }}
-              className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
-            >
-              로그아웃
-            </button>
+            <>
+              <Link
+                to="/me"
+                className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+              >
+                마이페이지
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void logout().finally(() => setIsAuthenticated(false))
+                }}
+                className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700"
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
             <Link
               to="/login"
@@ -1011,10 +1031,23 @@ function OrderDetailPage() {
   const { orderId } = useParams()
   const orderQuery = useOrder(orderId)
   const refundMutation = useRequestRefund()
+  const cancelRefundMutation = useCancelRefund()
+  const confirmOrderItemMutation = useConfirmOrderItem()
+  const deliveriesQuery = useDeliveries({ orderId }, Boolean(orderId))
+  const refundsQuery = useRefunds(Boolean(orderId))
   const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
   const firstOrderItem = firstDeliveryGroup?.items[0]
   const firstOrderItemId = firstOrderItem?.orderItemId
   const canRequestRefund = Boolean(firstOrderItemId && firstOrderItem.refundable)
+  const currentRefund = refundsQuery.data?.content.find(
+    (refund) => refund.orderItemId === firstOrderItemId,
+  )
+  const canConfirmOrderItem = Boolean(
+    orderId &&
+      firstOrderItemId &&
+      firstDeliveryGroup?.groupStatus === 'DELIVERED' &&
+      firstOrderItem?.itemStatus === 'ORDERED',
+  )
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
   const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
   if (orderQuery.isError) {
@@ -1097,6 +1130,20 @@ function OrderDetailPage() {
                   </p>
                 </div>
               </div>
+              {deliveriesQuery.data?.content.map((delivery) => (
+                <div key={delivery.deliveryId} className="mt-5 rounded-xl bg-slate-50 p-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-700">배송 상태</span>
+                    <StatusBadge tone={deliveryStatusTone(delivery.status)}>
+                      {deliveryStatusLabel(delivery.status)}
+                    </StatusBadge>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                    <span>운송장 번호: {delivery.trackingNumber ?? '아직 등록되지 않았습니다.'}</span>
+                    <span>배송 완료: {delivery.deliveredAt ? formatApplicationDate(delivery.deliveredAt) : '-'}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
           <aside className="rounded-2xl bg-slate-950 p-6 text-white">
@@ -1115,6 +1162,31 @@ function OrderDetailPage() {
                 <span>28,800원</span>
               </div>
             </div>
+            <button
+              type="button"
+              disabled={!canConfirmOrderItem || confirmOrderItemMutation.isPending}
+              onClick={() =>
+                orderId &&
+                firstOrderItemId &&
+                confirmOrderItemMutation.mutate({ orderId, orderItemId: firstOrderItemId })
+              }
+              className="mt-7 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {confirmOrderItemMutation.isPending
+                ? '구매확정 처리 중...'
+                : firstOrderItem?.itemStatus === 'CONFIRMED'
+                  ? '구매확정 완료'
+                  : '구매확정'}
+            </button>
+            {!canConfirmOrderItem && firstOrderItem?.itemStatus !== 'CONFIRMED' && (
+              <p className="mt-3 text-xs text-slate-400">배송 완료된 상품만 구매확정할 수 있습니다.</p>
+            )}
+            {confirmOrderItemMutation.isSuccess && (
+              <p className="mt-3 text-xs text-emerald-300">구매확정이 완료됐습니다.</p>
+            )}
+            {confirmOrderItemMutation.isError && (
+              <p className="mt-3 text-xs text-rose-300">구매확정에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+            )}
             <button
               type="button"
               disabled={!canRequestRefund || refundMutation.isPending}
@@ -1141,6 +1213,19 @@ function OrderDetailPage() {
             {refundMutation.isSuccess && (
               <p className="mt-3 text-xs text-emerald-300">환불 요청이 접수됐습니다.</p>
             )}
+            {currentRefund?.status === 'REQUESTED' && (
+              <button
+                type="button"
+                disabled={cancelRefundMutation.isPending}
+                onClick={() => cancelRefundMutation.mutate(currentRefund.refundId)}
+                className="mt-3 w-full rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {cancelRefundMutation.isPending ? '환불 취소 중...' : '환불 요청 취소'}
+              </button>
+            )}
+            {currentRefund && currentRefund.status !== 'REQUESTED' && (
+              <p className="mt-3 text-xs text-slate-400">환불 상태: {currentRefund.status}</p>
+            )}
             {refundMutation.isError && (
               <p className="mt-3 text-xs text-rose-300">
                 환불 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.
@@ -1166,6 +1251,8 @@ function CheckoutPage() {
   const productQuery = useProduct(state?.productId, !isTimeDeal)
   const timeDealQuery = useTimeDeal(state?.timeDealId, isTimeDeal)
   const userQuery = useMyInfo(isAuthenticated)
+  const addressesQuery = useAddresses(isAuthenticated)
+  const createAddressMutation = useCreateAddress()
   const product = isTimeDeal
     ? timeDealQuery.data
       ? timeDealFromApi(timeDealQuery.data)
@@ -1174,7 +1261,7 @@ function CheckoutPage() {
       ? productFromApi(productQuery.data)
       : null
   const quantity = state?.quantity ?? 1
-  const [recipient, setRecipient] = useState(() => {
+  const [recipient, setRecipient] = useState<Recipient>(() => {
     const saved = localStorage.getItem('parut.checkout.recipient')
     if (saved) {
       try {
@@ -1196,11 +1283,37 @@ function CheckoutPage() {
   const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const effectiveRecipient = {
     ...recipient,
     recipientName: recipient.recipientName || userQuery.data?.name || '',
   }
   const serializedRecipient = JSON.stringify(effectiveRecipient)
+  const savedAddresses = addressesQuery.data ?? []
+
+  function applySavedAddress(address: (typeof savedAddresses)[number]) {
+    setSelectedAddressId(address.addressId)
+    setRecipient((current) => ({
+      ...current,
+      recipientName: address.recipientName ?? '',
+      recipientPhone: address.recipientPhone ?? '',
+      zipCode: address.zipCode ?? '',
+      addressBase: address.addressBase ?? '',
+      addressDetail: address.addressDetail ?? '',
+    }))
+  }
+
+  function saveCurrentAddress() {
+    createAddressMutation.mutate({
+      addressName: `배송지 ${savedAddresses.length + 1}`,
+      recipientName: effectiveRecipient.recipientName,
+      recipientPhone: effectiveRecipient.recipientPhone,
+      zipCode: effectiveRecipient.zipCode,
+      addressBase: effectiveRecipient.addressBase,
+      addressDetail: effectiveRecipient.addressDetail,
+      defaultAddress: savedAddresses.length === 0,
+    })
+  }
 
   useEffect(() => {
     if (locationState) {
@@ -1298,6 +1411,7 @@ function CheckoutPage() {
     paymentMutation.isPending ||
     confirmPaymentMutation.isPending ||
     paymentProcessing
+  const checkoutDataLoading = userQuery.isPending || addressesQuery.isPending
 
   if (submitted)
     return (
@@ -1358,10 +1472,40 @@ function CheckoutPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 className="font-bold">배송 정보</h2>
+              {checkoutDataLoading && (
+                <div className="mt-5 animate-pulse space-y-2" aria-label="배송지 불러오는 중">
+                  <div className="h-3 w-24 rounded bg-slate-200" />
+                  <div className="h-16 rounded-xl bg-slate-100" />
+                </div>
+              )}
+              {!checkoutDataLoading && savedAddresses.length > 0 && (
+                <div className="mt-5 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">저장된 배송지</p>
+                  {savedAddresses.map((address) => (
+                    <button
+                      key={address.addressId}
+                      type="button"
+                      disabled={orderPending}
+                      onClick={() => applySavedAddress(address)}
+                      aria-pressed={selectedAddressId === address.addressId}
+                      className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${selectedAddressId === address.addressId ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200 hover:border-emerald-300'}`}
+                    >
+                      <span className="font-bold">{address.addressName || '배송지'}</span>
+                      {address.defaultAddress && (
+                        <span className="ml-2 text-xs font-semibold text-emerald-700">기본</span>
+                      )}
+                      <span className="mt-1 block text-xs text-slate-500">
+                        {address.recipientName} · {address.addressBase} {address.addressDetail}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="받는 분"
+                  disabled={checkoutDataLoading || orderPending}
                   value={effectiveRecipient.recipientName}
                   onChange={(event) =>
                     setRecipient({ ...recipient, recipientName: event.target.value })
@@ -1370,6 +1514,7 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="연락처"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.recipientPhone}
                   onChange={(event) =>
                     setRecipient({ ...recipient, recipientPhone: event.target.value })
@@ -1378,12 +1523,14 @@ function CheckoutPage() {
                 <input
                   className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="우편번호"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.zipCode}
                   onChange={(event) => setRecipient({ ...recipient, zipCode: event.target.value })}
                 />
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="기본 주소"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.addressBase}
                   onChange={(event) =>
                     setRecipient({ ...recipient, addressBase: event.target.value })
@@ -1392,6 +1539,7 @@ function CheckoutPage() {
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="상세 주소"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.addressDetail}
                   onChange={(event) =>
                     setRecipient({ ...recipient, addressDetail: event.target.value })
@@ -1400,15 +1548,29 @@ function CheckoutPage() {
                 <input
                   className="sm:col-span-2 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   placeholder="배송 요청사항 (선택)"
+                  disabled={checkoutDataLoading || orderPending}
                   value={recipient.deliveryRequest}
                   onChange={(event) =>
                     setRecipient({ ...recipient, deliveryRequest: event.target.value })
                   }
                 />
-                <p className="sm:col-span-2 text-xs text-slate-500">
-                  최근 입력한 배송지가 있으면 자동으로 불러옵니다. 계정 배송지 API가 추가되면 서버
-                  주소로 교체됩니다.
-                </p>
+                <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500">입력한 배송지를 다음 주문에도 사용할 수 있습니다.</p>
+                  <button
+                    type="button"
+                    disabled={checkoutDataLoading || orderPending || createAddressMutation.isPending || !effectiveRecipient.addressBase}
+                    onClick={saveCurrentAddress}
+                    className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {createAddressMutation.isPending ? '저장 중...' : '배송지 저장'}
+                  </button>
+                </div>
+                {createAddressMutation.isSuccess && (
+                  <p className="sm:col-span-2 text-xs text-emerald-700">배송지를 저장했습니다.</p>
+                )}
+                {addressesQuery.isError && (
+                  <p className="sm:col-span-2 text-xs text-red-600">저장 배송지를 불러오지 못했습니다.</p>
+                )}
               </div>
             </div>
           </section>
@@ -1439,11 +1601,11 @@ function CheckoutPage() {
             {validationError && <p className="mt-4 text-xs text-red-300">{validationError}</p>}
             <button
               type="button"
-              disabled={orderPending}
+              disabled={checkoutDataLoading || orderPending}
               onClick={() => void submitOrder()}
               className="mt-7 w-full rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {orderPending ? '주문 처리 중...' : `${money(totalAmount)} 결제 준비`}
+              {checkoutDataLoading ? '배송지 정보를 불러오는 중...' : orderPending ? '주문 처리 중...' : `${money(totalAmount)} 결제 준비`}
             </button>
           </aside>
         </div>
@@ -1644,6 +1806,228 @@ function AuthPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+type AddressFormState = {
+  addressName: string
+  recipientName: string
+  recipientPhone: string
+  zipCode: string
+  addressBase: string
+  addressDetail: string
+  defaultAddress: boolean
+}
+
+const emptyAddressForm: AddressFormState = {
+  addressName: '',
+  recipientName: '',
+  recipientPhone: '',
+  zipCode: '',
+  addressBase: '',
+  addressDetail: '',
+  defaultAddress: false,
+}
+
+function MyPage() {
+  const isAuthenticated = Boolean(authStorage.getAccessToken())
+  const userQuery = useMyInfo(isAuthenticated)
+  const addressesQuery = useAddresses(isAuthenticated)
+  const updateUserMutation = useUpdateMyInfo()
+  const deleteUserMutation = useDeleteMyInfo()
+  const createAddressMutation = useCreateAddress()
+  const updateAddressMutation = useUpdateAddress()
+  const defaultAddressMutation = useSetDefaultAddress()
+  const deleteAddressMutation = useDeleteAddress()
+  const [name, setName] = useState('')
+  const [slackId, setSlackId] = useState('')
+  const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const addressFormRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    if (userQuery.data) {
+      setName(userQuery.data.name)
+      setSlackId(userQuery.data.slackId ?? '')
+    }
+  }, [userQuery.data])
+
+  useEffect(() => {
+    if (editingAddressId) {
+      addressFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [editingAddressId])
+
+  if (!isAuthenticated) {
+    return (
+      <PublicLayout>
+        <main className="mx-auto max-w-xl px-5 py-20 text-center sm:px-8">
+          <h1 className="text-3xl font-black">로그인이 필요한 기능입니다</h1>
+          <Link to="/login" className="mt-8 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+            로그인하러 가기
+          </Link>
+        </main>
+      </PublicLayout>
+    )
+  }
+
+  const addresses = addressesQuery.data ?? []
+  const addressMutationPending =
+    createAddressMutation.isPending || updateAddressMutation.isPending
+
+  function startAddressEdit(address: Address) {
+    setEditingAddressId(address.addressId)
+    setAddressForm({
+      addressName: address.addressName ?? '',
+      recipientName: address.recipientName ?? '',
+      recipientPhone: address.recipientPhone ?? '',
+      zipCode: address.zipCode ?? '',
+      addressBase: address.addressBase ?? '',
+      addressDetail: address.addressDetail ?? '',
+      defaultAddress: address.defaultAddress,
+    })
+  }
+
+  function resetAddressForm() {
+    setEditingAddressId(null)
+    setAddressForm(emptyAddressForm)
+  }
+
+  function saveAddress(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (editingAddressId) {
+      updateAddressMutation.mutate(
+        { addressId: editingAddressId, input: addressForm },
+        { onSuccess: resetAddressForm },
+      )
+      return
+    }
+    createAddressMutation.mutate(addressForm, { onSuccess: resetAddressForm })
+  }
+
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        <p className="text-sm font-bold text-emerald-700">MY PARUT</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">마이페이지</h1>
+        <div className="mt-8 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6">
+            <h2 className="font-bold">내 정보</h2>
+            {userQuery.isPending ? (
+              <div className="mt-5 h-32 animate-pulse rounded-xl bg-slate-100" />
+            ) : (
+              <form
+                className="mt-5 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (userQuery.data) {
+                    updateUserMutation.mutate({ userId: userQuery.data.id, input: { name, slackId } })
+                  }
+                }}
+              >
+                <p className="text-sm text-slate-500">아이디: {userQuery.data?.username}</p>
+                <input
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder="이름"
+                />
+                <input
+                  value={slackId}
+                  onChange={(event) => setSlackId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder="Slack ID (선택)"
+                />
+                <button className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">
+                  {updateUserMutation.isPending ? '저장 중...' : '정보 저장'}
+                </button>
+                {updateUserMutation.isSuccess && <p className="text-xs text-emerald-700">내 정보를 저장했습니다.</p>}
+                <button
+                  type="button"
+                  disabled={deleteUserMutation.isPending || !userQuery.data}
+                  onClick={() => {
+                    if (userQuery.data && window.confirm('정말 탈퇴하시겠습니까?')) {
+                      deleteUserMutation.mutate(userQuery.data.id, { onSuccess: () => void logout() })
+                    }
+                  }}
+                  className="w-full rounded-xl border border-red-200 px-4 py-3 text-sm font-bold text-red-600 disabled:opacity-50"
+                >
+                  회원 탈퇴
+                </button>
+              </form>
+            )}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold">배송지 관리</h2>
+                <p className="mt-1 text-sm text-slate-500">checkout에서 저장한 배송지를 관리합니다.</p>
+              </div>
+              <span className="text-xs text-slate-400">{addresses.length}개</span>
+            </div>
+            <div className="mt-5 space-y-3">
+              {addressesQuery.isPending && <div className="h-24 animate-pulse rounded-xl bg-slate-100" />}
+              {!addressesQuery.isPending && addresses.length === 0 && (
+                <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">저장된 배송지가 없습니다.</p>
+              )}
+              {addresses.map((address) => (
+                <div
+                  key={address.addressId}
+                  className={`rounded-xl border p-4 transition ${editingAddressId === address.addressId ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200'}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold">{address.addressName || '배송지'}</p>
+                      <p className="mt-1 text-sm text-slate-600">{address.recipientName} · {address.recipientPhone}</p>
+                      <p className="mt-1 text-sm text-slate-500">({address.zipCode}) {address.addressBase} {address.addressDetail}</p>
+                    </div>
+                    {address.defaultAddress && <StatusBadge tone="green">기본 배송지</StatusBadge>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!address.defaultAddress && (
+                      <button type="button" onClick={() => defaultAddressMutation.mutate(address.addressId)} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">기본으로 설정</button>
+                    )}
+                    <button type="button" onClick={() => startAddressEdit(address)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">수정</button>
+                    <button type="button" onClick={() => { if (window.confirm('이 배송지를 삭제하시겠습니까?')) deleteAddressMutation.mutate(address.addressId) }} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600">삭제</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form ref={addressFormRef} className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2" onSubmit={saveAddress}>
+              <h3 className="sm:col-span-2 font-bold">{editingAddressId ? '배송지 수정' : '배송지 추가'}</h3>
+              {([
+                ['addressName', '배송지 이름'],
+                ['recipientName', '받는 분'],
+                ['recipientPhone', '연락처'],
+                ['zipCode', '우편번호'],
+                ['addressBase', '기본 주소'],
+                ['addressDetail', '상세 주소'],
+              ] as const).map(([field, placeholder]) => (
+                <input
+                  key={field}
+                  required={!['addressName', 'addressDetail'].includes(field)}
+                  value={addressForm[field]}
+                  onChange={(event) => setAddressForm((current) => ({ ...current, [field]: event.target.value }))}
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                  placeholder={placeholder}
+                />
+              ))}
+              {!editingAddressId && (
+                <label className="sm:col-span-2 flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={addressForm.defaultAddress} onChange={(event) => setAddressForm((current) => ({ ...current, defaultAddress: event.target.checked }))} />
+                  기본 배송지로 설정
+                </label>
+              )}
+              <div className="sm:col-span-2 flex gap-2">
+                <button disabled={addressMutationPending} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{addressMutationPending ? '저장 중...' : editingAddressId ? '배송지 수정' : '배송지 추가'}</button>
+                {editingAddressId && <button type="button" onClick={resetAddressForm} className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">취소</button>}
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+    </PublicLayout>
   )
 }
 
@@ -2540,6 +2924,7 @@ function DashboardPage({
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
       {seller && section === 'time-deal-stocks' && <SellerTimeDealStockManagement />}
       {seller && section === 'orders' && <SellerOrderManagement />}
+      {seller && section === 'settlements' && <SellerSettlementManagement />}
       {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-5 py-4">
@@ -2599,7 +2984,156 @@ function DashboardPage({
           ))}
         </div>
       )}
+      {!seller && section === 'settlements' && <AdminSettlementManagement />}
     </DashboardLayout>
+  )
+}
+
+function settlementStatusLabel(status: SettlementStatus) {
+  return status === 'PENDING' ? '정산 예정' : '정산 완료'
+}
+
+function settlementStatusTone(status: SettlementStatus): 'orange' | 'green' {
+  return status === 'PENDING' ? 'orange' : 'green'
+}
+
+function SettlementStatusSelect({
+  value,
+  onChange,
+}: {
+  value: SettlementStatus
+  onChange: (value: SettlementStatus) => void
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value as SettlementStatus)}
+      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+    >
+      <option value="PENDING">정산 예정</option>
+      <option value="COMPLETED">정산 완료</option>
+    </select>
+  )
+}
+
+function SellerSettlementManagement() {
+  const [status, setStatus] = useState<SettlementStatus>('PENDING')
+  const settlementsQuery = useSellerSettlements(status)
+  const settlements = settlementsQuery.data?.content ?? []
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="font-bold">내 정산 내역</h2>
+          <p className="mt-1 text-xs text-slate-500">구매확정된 내 상품의 정산 예정·완료 내역입니다.</p>
+        </div>
+        <SettlementStatusSelect value={status} onChange={setStatus} />
+      </div>
+      {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
+      {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">정산 목록을 불러오지 못했습니다.</p>}
+      {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
+        <p className="p-10 text-center text-sm text-slate-500">조회할 정산 내역이 없습니다.</p>
+      )}
+      {settlements.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-5 py-3">정산 ID</th>
+                <th className="px-5 py-3">주문상품 ID</th>
+                <th className="px-5 py-3">판매 금액</th>
+                <th className="px-5 py-3">정산 금액</th>
+                <th className="px-5 py-3">상태</th>
+                <th className="px-5 py-3">정산 가능일</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {settlements.map((settlement) => (
+                <tr key={settlement.settlementId}>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
+                  <td className="px-5 py-4">{money(settlement.salesAmount)}</td>
+                  <td className="px-5 py-4 font-bold">{money(settlement.settlementAmount)}</td>
+                  <td className="px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(settlement.eligibleAt).toLocaleDateString('ko-KR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function AdminSettlementManagement() {
+  const [status, setStatus] = useState<SettlementStatus>('PENDING')
+  const [page, setPage] = useState(0)
+  const settlementsQuery = useAdminSettlements(status, page)
+  const settlements = settlementsQuery.data?.content ?? []
+  const pageInfo = settlementsQuery.data?.pageInfo
+
+  function changeStatus(nextStatus: SettlementStatus) {
+    setStatus(nextStatus)
+    setPage(0)
+  }
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="font-bold">전체 정산 운영</h2>
+          <p className="mt-1 text-xs text-slate-500">모든 판매자의 정산 상태와 금액을 조회합니다.</p>
+        </div>
+        <SettlementStatusSelect value={status} onChange={changeStatus} />
+      </div>
+      {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
+      {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">전체 정산 목록을 불러오지 못했습니다.</p>}
+      {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
+        <p className="p-10 text-center text-sm text-slate-500">조회할 정산 내역이 없습니다.</p>
+      )}
+      {settlements.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-5 py-3">정산 ID</th>
+                <th className="px-5 py-3">판매자 ID</th>
+                <th className="px-5 py-3">주문상품 ID</th>
+                <th className="px-5 py-3">판매 금액</th>
+                <th className="px-5 py-3">정산 금액</th>
+                <th className="px-5 py-3">상태</th>
+                <th className="px-5 py-3">생성일</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {settlements.map((settlement) => (
+                <tr key={settlement.settlementId}>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.sellerId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
+                  <td className="px-5 py-4">{money(settlement.salesAmount)}</td>
+                  <td className="px-5 py-4 font-bold">{money(settlement.settlementAmount)}</td>
+                  <td className="px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pageInfo && pageInfo.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm">
+          <span className="text-slate-500">총 {pageInfo.totalElements}건</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg bg-slate-100 px-3 py-2 font-bold disabled:opacity-40">이전</button>
+            <span className="px-2 py-2 text-slate-500">{page + 1} / {pageInfo.totalPages}</span>
+            <button type="button" disabled={pageInfo.last} onClick={() => setPage((current) => current + 1)} className="rounded-lg bg-slate-100 px-3 py-2 font-bold disabled:opacity-40">다음</button>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -2929,6 +3463,7 @@ function App() {
       <Route path="/cart" element={<CartPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+      <Route path="/me" element={<MyPage />} />
       <Route path="/login" element={<AuthPage />} />
       <Route path="/signup" element={<AuthPage />} />
       <Route path="/admin/login" element={<AuthPage />} />

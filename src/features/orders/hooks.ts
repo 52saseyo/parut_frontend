@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmOrderItem,
   confirmPayment,
@@ -60,8 +60,13 @@ export function useConfirmPayment() {
 }
 
 export function useConfirmOrderItem() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ orderId, orderItemId }: { orderId: string; orderItemId: string }) =>
       confirmOrderItem(orderId, orderItemId),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+      void queryClient.invalidateQueries({ queryKey: orderKeys.list() })
+    },
   })
 }
