@@ -2856,6 +2856,47 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
   )
 }
 
+function AdminStockManagement() {
+  const stocksQuery = useSellerStocks(1, 50)
+  const stocks = stocksQuery.data?.content ?? []
+
+  return (
+    <section className="mt-8 space-y-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="font-bold">일반 상품 재고</h2>
+        <p className="mt-1 text-sm text-slate-500">관리자 권한으로 전체 일반 상품의 재고 현황을 조회합니다.</p>
+        {stocksQuery.isPending && <div className="mt-5 h-40 animate-pulse rounded-xl bg-slate-100" />}
+        {stocksQuery.isError && <p className="mt-5 text-sm text-red-600">일반 상품 재고를 불러오지 못했습니다.</p>}
+        {!stocksQuery.isPending && !stocksQuery.isError && stocks.length === 0 && <p className="mt-5 rounded-xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">조회할 일반 상품 재고가 없습니다.</p>}
+        {stocks.length > 0 && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr><th className="px-5 py-3">상품 ID</th><th className="px-5 py-3">총 재고</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">상태</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stocks.map((stock) => (
+                  <tr key={stock.stockId}>
+                    <td className="px-5 py-4 font-mono text-xs">{stock.productId}</td>
+                    <td className="px-5 py-4">{stock.totalQuantity}개</td>
+                    <td className="px-5 py-4">{stock.availableQuantity}개</td>
+                    <td className="px-5 py-4"><StatusBadge tone={stock.status === 'AVAILABLE' ? 'green' : 'orange'}>{stock.status}</StatusBadge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+        <h2 className="font-bold text-slate-700">타임딜 재고</h2>
+        <p className="mt-2 text-sm text-slate-500">관리자용 타임딜 전체 재고 조회 API가 준비되면 연결할 예정입니다.</p>
+        <StatusBadge tone="orange">추후 개발 예정</StatusBadge>
+      </div>
+    </section>
+  )
+}
+
 function DashboardPage({
   role,
   section = 'dashboard',
@@ -2962,11 +3003,9 @@ function DashboardPage({
       {seller && section === 'orders' && <SellerOrderManagement />}
       {seller && section === 'refunds' && <SellerRefundManagement />}
       {seller && section === 'settlements' && <SellerSettlementManagement />}
-      {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
+      {!seller && section === 'admin-products' && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="font-bold">{section.includes('stocks') ? '재고 현황' : '상품 목록'}</h2>
-          </div>
+          <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">상품 목록</h2></div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500">
@@ -2997,6 +3036,7 @@ function DashboardPage({
           </div>
         </div>
       )}
+      {!seller && section === 'admin-stocks' && <AdminStockManagement />}
       {section === 'sellers' && (
         <AdminSellerApplications />
       )}
