@@ -14,17 +14,17 @@ VITE_API_BASE_URL=http://localhost:8080
 
 타임딜은 일반 상품 API와 분리하여 `GET /api/v1/time-deals?status=ACTIVE&size=10`과 `GET /api/v1/time-deals/{timeDealId}`를 사용합니다. 타임딜 목록·상세의 식별자는 `productId`가 아니라 `timeDealId`입니다. API 응답이 비어 있거나 실패하면 목업 데이터를 노출하지 않고 빈 상태 또는 오류 안내를 표시합니다.
 
-판매자 타임딜 API는 `/api/v1/time-deals/seller` 하위 경로를 사용합니다. 판매자 본인 타임딜 목록은 cursor 기반으로 조회하고, 생성·수정·삭제·중지와 타임딜 재고 조회·조정·상품 재고 이관을 해당 seller 경로에서 처리합니다. 타임딜 이미지는 presigned URL 업로드와 complete 처리 후 `POST /api/v1/time-deals/seller/{timeDealId}/images`로 연결합니다.
+판매자 타임딜 API는 `/api/v1/seller/timed-deals` 하위 경로를 사용합니다. 판매자 본인 타임딜 목록은 cursor 기반으로 조회하고, 생성·수정·삭제·중지와 타임딜 재고 조회·조정·상품 재고 이관을 해당 seller 경로에서 처리합니다. 타임딜 이미지는 presigned URL 업로드와 complete 처리 후 `POST /api/v1/seller/timed-deals/{timeDealId}/images`로 연결합니다.
 
-- `GET /api/v1/time-deals/seller`
-- `POST /api/v1/time-deals/seller`
-- `POST /api/v1/time-deals/seller/conversions`
-- `PATCH /api/v1/time-deals/seller/{timeDealId}`
-- `DELETE /api/v1/time-deals/seller/{timeDealId}`
-- `PATCH /api/v1/time-deals/seller/{timeDealId}/stop`
-- `GET/PATCH /api/v1/time-deals/seller/{timeDealId}/stock`
-- `GET /api/v1/time-deals/seller/stocks`
-- `POST /api/v1/time-deals/seller/{timeDealId}/stock/transfer`
+- `GET /api/v1/seller/timed-deals`
+- `POST /api/v1/seller/timed-deals`
+- `POST /api/v1/seller/timed-deals/conversions`
+- `PATCH /api/v1/seller/timed-deals/{timeDealId}`
+- `DELETE /api/v1/seller/timed-deals/{timeDealId}`
+- `PATCH /api/v1/seller/timed-deals/{timeDealId}/stop`
+- `GET/PATCH /api/v1/seller/timed-deals/{timeDealId}/stock`
+- `GET /api/v1/seller/timed-deals/stocks`
+- `POST /api/v1/seller/timed-deals/{timeDealId}/stock/transfer`
 
 재고 임박 표시는 `availableQuantity <= lowStockThreshold`일 때 노출합니다. 타임딜 응답에는 두 필드가 제공되어 목록·상세에 적용하며, 일반 상품 공개 목록·상세 응답에는 현재 `lowStockThreshold`가 없어 해당 필드가 추가되면 동일한 규칙으로 자동 적용합니다.
 
