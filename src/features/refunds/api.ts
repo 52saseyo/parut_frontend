@@ -36,9 +36,9 @@ export async function requestRefund(orderItemId: string, reason: string) {
   return response.data.data
 }
 
-export async function getRefunds() {
+export async function getRefunds(status?: Refund['status']) {
   const response = await apiClient.get<ApiResponse<RefundListResponse>>('/api/v1/refunds', {
-    params: { size: 10 },
+    params: { size: 10, ...(status ? { status } : {}) },
   })
   return response.data.data
 }

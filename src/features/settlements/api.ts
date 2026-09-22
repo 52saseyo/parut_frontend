@@ -54,3 +54,11 @@ export async function getAdminSettlements(status: SettlementStatus = 'PENDING', 
   )
   return response.data.data
 }
+
+export async function completeSettlements(settlementIds: string[]) {
+  const response = await apiClient.patch<ApiResponse<AdminSettlement[]>>(
+    '/api/v1/settlements/complete',
+    { settlementIds },
+  )
+  return response.data.data
+}

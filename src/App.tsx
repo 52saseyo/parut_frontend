@@ -25,10 +25,11 @@ import {
 import type { Recipient } from './features/orders/api'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
-import { useCancelRefund, useRefunds, useRequestRefund } from './features/refunds/hooks'
+import { useApproveRefunds, useCancelRefund, useRefunds, useRejectRefund, useRequestRefund } from './features/refunds/hooks'
+import type { Refund } from './features/refunds/api'
 import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
-import { useAdminSettlements, useSellerSettlements } from './features/settlements/hooks'
+import { useAdminSettlements, useCompleteSettlements, useSellerSettlements } from './features/settlements/hooks'
 import type { SettlementStatus } from './features/settlements/api'
 import {
   useAddresses,
@@ -2763,6 +2764,7 @@ function DashboardLayout({ children, role }: { children: ReactNode; role: 'selle
         ['/seller/time-deals', '타임딜 관리'],
         ['/seller/time-deals/stocks', '타임딜 재고 관리'],
         ['/seller/orders', '주문·배송'],
+        ['/seller/refunds', '환불'],
         ['/seller/settlements', '정산'],
       ]
     : [
@@ -2859,7 +2861,9 @@ function DashboardPage({
           : section === 'time-deal-stocks'
             ? '타임딜 재고 관리'
         : section === 'orders'
-          ? '주문·배송 관리'
+            ? '주문·배송 관리'
+          : section === 'refunds'
+            ? '환불 관리'
           : section === 'sellers'
             ? '판매자 승인'
             : section === 'settlements'
@@ -2924,6 +2928,7 @@ function DashboardPage({
       {seller && section === 'time-deals' && <SellerTimeDealManagement />}
       {seller && section === 'time-deal-stocks' && <SellerTimeDealStockManagement />}
       {seller && section === 'orders' && <SellerOrderManagement />}
+      {seller && section === 'refunds' && <SellerRefundManagement />}
       {seller && section === 'settlements' && <SellerSettlementManagement />}
       {!seller && (section === 'admin-products' || section === 'admin-stocks') && (
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -3070,13 +3075,50 @@ function SellerSettlementManagement() {
 function AdminSettlementManagement() {
   const [status, setStatus] = useState<SettlementStatus>('PENDING')
   const [page, setPage] = useState(0)
+  const [selectedSettlementIds, setSelectedSettlementIds] = useState<string[]>([])
+  const [message, setMessage] = useState<string | null>(null)
   const settlementsQuery = useAdminSettlements(status, page)
+  const completeMutation = useCompleteSettlements()
   const settlements = settlementsQuery.data?.content ?? []
   const pageInfo = settlementsQuery.data?.pageInfo
+  const selectableSettlements = settlements.filter((settlement) => settlement.status === 'PENDING')
+  const allSelected = selectableSettlements.length > 0 && selectableSettlements.every((settlement) => selectedSettlementIds.includes(settlement.settlementId))
 
   function changeStatus(nextStatus: SettlementStatus) {
     setStatus(nextStatus)
     setPage(0)
+    setSelectedSettlementIds([])
+  }
+
+  function toggleSettlement(settlementId: string) {
+    setSelectedSettlementIds((current) => {
+      if (current.includes(settlementId)) return current.filter((id) => id !== settlementId)
+      if (current.length >= 50) {
+        setMessage('정산 승인은 최대 50건까지 선택할 수 있습니다.')
+        return current
+      }
+      return [...current, settlementId]
+    })
+  }
+
+  function toggleAllSettlements() {
+    if (allSelected) {
+      setSelectedSettlementIds([])
+      return
+    }
+    setSelectedSettlementIds(selectableSettlements.slice(0, 50).map((settlement) => settlement.settlementId))
+    if (selectableSettlements.length > 50) setMessage('정산 승인은 최대 50건까지만 선택됩니다.')
+  }
+
+  function completeSelected() {
+    if (selectedSettlementIds.length === 0) return
+    completeMutation.mutate(selectedSettlementIds, {
+      onSuccess: () => {
+        setSelectedSettlementIds([])
+        setMessage('선택한 정산을 완료 처리했습니다.')
+      },
+      onError: () => setMessage('정산 완료 처리에 실패했습니다. 대상 상태를 확인해주세요.'),
+    })
   }
 
   return (
@@ -3086,8 +3128,21 @@ function AdminSettlementManagement() {
           <h2 className="font-bold">전체 정산 운영</h2>
           <p className="mt-1 text-xs text-slate-500">모든 판매자의 정산 상태와 금액을 조회합니다.</p>
         </div>
-        <SettlementStatusSelect value={status} onChange={changeStatus} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SettlementStatusSelect value={status} onChange={changeStatus} />
+          {status === 'PENDING' && (
+            <button
+              type="button"
+              disabled={selectedSettlementIds.length === 0 || completeMutation.isPending}
+              onClick={completeSelected}
+              className="rounded-lg bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {completeMutation.isPending ? '처리 중...' : `선택 정산 승인 (${selectedSettlementIds.length})`}
+            </button>
+          )}
+        </div>
       </div>
+      {message && <p className="border-b border-slate-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">{message}</p>}
       {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
       {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">전체 정산 목록을 불러오지 못했습니다.</p>}
       {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
@@ -3098,6 +3153,15 @@ function AdminSettlementManagement() {
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
+                <th className="w-12 px-5 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAllSettlements}
+                    disabled={selectableSettlements.length === 0 || completeMutation.isPending}
+                    aria-label="정산 전체 선택"
+                  />
+                </th>
                 <th className="px-5 py-3">정산 ID</th>
                 <th className="px-5 py-3">판매자 ID</th>
                 <th className="px-5 py-3">주문상품 ID</th>
@@ -3110,6 +3174,15 @@ function AdminSettlementManagement() {
             <tbody className="divide-y divide-slate-100">
               {settlements.map((settlement) => (
                 <tr key={settlement.settlementId}>
+                  <td className="px-5 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedSettlementIds.includes(settlement.settlementId)}
+                      onChange={() => toggleSettlement(settlement.settlementId)}
+                      disabled={settlement.status !== 'PENDING' || completeMutation.isPending}
+                      aria-label={`${settlement.settlementId} 선택`}
+                    />
+                  </td>
                   <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
                   <td className="px-5 py-4 font-mono text-xs">{settlement.sellerId}</td>
                   <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
@@ -3245,6 +3318,94 @@ function SellerOrderManagement() {
         <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           배송 시작에 실패했습니다. 운송장 번호와 배송 상태를 확인해주세요.
         </p>
+      )}
+    </section>
+  )
+}
+
+function SellerRefundManagement() {
+  const refundsQuery = useRefunds(true, 'REQUESTED')
+  const approveMutation = useApproveRefunds()
+  const rejectMutation = useRejectRefund()
+  const [selectedRefundIds, setSelectedRefundIds] = useState<string[]>([])
+  const [message, setMessage] = useState<string | null>(null)
+  const refunds = refundsQuery.data?.content ?? []
+  const allSelected = refunds.length > 0 && selectedRefundIds.length === refunds.length
+  const mutationPending = approveMutation.isPending || rejectMutation.isPending
+
+  function toggleRefund(refundId: string) {
+    setSelectedRefundIds((current) =>
+      current.includes(refundId) ? current.filter((id) => id !== refundId) : [...current, refundId],
+    )
+  }
+
+  function rejectOne(refund: Refund) {
+    const rejectionReason = window.prompt('거절 사유를 입력해주세요.')?.trim()
+    if (!rejectionReason) return
+    rejectMutation.mutate({ refundId: refund.refundId, rejectionReason }, {
+      onSuccess: () => {
+        setSelectedRefundIds((current) => current.filter((id) => id !== refund.refundId))
+        setMessage('환불 요청을 거절했습니다.')
+      },
+      onError: () => setMessage('환불 거절에 실패했습니다. 요청 상태를 확인해주세요.'),
+    })
+  }
+
+  function approveSelected() {
+    if (selectedRefundIds.length === 0) return
+    approveMutation.mutate(selectedRefundIds, {
+      onSuccess: () => {
+        setSelectedRefundIds([])
+        setMessage('선택한 환불 요청을 승인했습니다.')
+      },
+      onError: () => setMessage('환불 승인에 실패했습니다. 요청 상태를 확인해주세요.'),
+    })
+  }
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="font-bold">환불 요청 목록</h2>
+          <p className="mt-1 text-sm text-slate-500">내 상품에 접수된 환불 요청을 승인하거나 거절합니다.</p>
+        </div>
+        <button type="button" disabled={selectedRefundIds.length === 0 || mutationPending} onClick={approveSelected} className="rounded-lg bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+          {approveMutation.isPending ? '승인 중...' : `선택 환불 전체 승인 (${selectedRefundIds.length})`}
+        </button>
+      </div>
+      {message && <p className="border-b border-slate-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">{message}</p>}
+      {refundsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
+      {refundsQuery.isError && <p className="px-5 py-12 text-center text-sm text-red-600">환불 요청 목록을 불러오지 못했습니다.</p>}
+      {!refundsQuery.isPending && !refundsQuery.isError && refunds.length === 0 && <p className="px-5 py-12 text-center text-sm text-slate-500">접수된 환불 요청이 없습니다.</p>}
+      {refunds.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="w-12 px-5 py-3"><input type="checkbox" checked={allSelected} onChange={() => setSelectedRefundIds(allSelected ? [] : refunds.map((refund) => refund.refundId))} disabled={mutationPending} aria-label="환불 요청 전체 선택" /></th>
+                <th className="px-5 py-3">환불 ID</th>
+                <th className="px-5 py-3">주문상품 ID</th>
+                <th className="px-5 py-3">환불 금액</th>
+                <th className="px-5 py-3">사유</th>
+                <th className="px-5 py-3">요청일</th>
+                <th className="px-5 py-3">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {refunds.map((refund) => (
+                <tr key={refund.refundId}>
+                  <td className="px-5 py-4"><input type="checkbox" checked={selectedRefundIds.includes(refund.refundId)} onChange={() => toggleRefund(refund.refundId)} disabled={mutationPending} aria-label={`${refund.refundId} 선택`} /></td>
+                  <td className="px-5 py-4 font-mono text-xs">{refund.refundId}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{refund.orderItemId}</td>
+                  <td className="px-5 py-4 font-bold">{money(refund.refundAmount)}</td>
+                  <td className="max-w-xs px-5 py-4 text-slate-600">{refund.reason}</td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(refund.requestedAt).toLocaleString('ko-KR')}</td>
+                  <td className="px-5 py-4"><button type="button" disabled={mutationPending} onClick={() => rejectOne(refund)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40">{rejectMutation.isPending ? '처리 중...' : '거절'}</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )
@@ -3475,6 +3636,7 @@ function App() {
       <Route path="/seller/time-deals" element={<SellerAccessPage section="time-deals" />} />
       <Route path="/seller/time-deals/stocks" element={<SellerAccessPage section="time-deal-stocks" />} />
       <Route path="/seller/orders" element={<SellerAccessPage section="orders" />} />
+      <Route path="/seller/refunds" element={<SellerAccessPage section="refunds" />} />
       <Route
         path="/seller/settlements"
         element={<SellerAccessPage section="settlements" />}
