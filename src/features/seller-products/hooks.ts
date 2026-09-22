@@ -46,10 +46,12 @@ export function useSellerProducts(params: {
   category?: ProductCategory
   status?: ProductStatus
   appearanceType?: AppearanceType
-}) {
+  size?: number
+}, enabled = true) {
   return useQuery({
     queryKey: sellerProductKeys.list(params),
     queryFn: () => getSellerProducts(params),
+    enabled,
   })
 }
 

@@ -2864,6 +2864,30 @@ function DashboardPage({
   section?: string
 }) {
   const seller = role === 'seller'
+  const sellerProductsQuery = useSellerProducts({ status: 'ON_SALE', size: 50 }, seller)
+  const sellerSettlementsQuery = useSellerSettlements('COMPLETED', seller)
+  const currentDate = new Date()
+  const currentMonthSettlementAmount = (sellerSettlementsQuery.data?.content ?? [])
+    .filter((settlement) => {
+      if (!settlement.settledAt) return false
+      const settledAt = new Date(settlement.settledAt)
+      return settledAt.getFullYear() === currentDate.getFullYear() && settledAt.getMonth() === currentDate.getMonth()
+    })
+    .reduce((total, settlement) => total + settlement.settlementAmount, 0)
+  const sellerDashboardMetrics = [
+    ['이번 달 주문', '집계 API 없음', '판매자 주문 집계 endpoint 필요'],
+    [
+      '판매 중 상품',
+      sellerProductsQuery.isPending ? '불러오는 중...' : `${sellerProductsQuery.data?.pageInfo.totalElements ?? 0}개`,
+      '상품 목록 API의 전체 건수 기준',
+    ],
+    ['배송 대기', '집계 API 없음', '배송 전체 건수 집계 endpoint 필요'],
+    [
+      '이번 달 정산',
+      sellerSettlementsQuery.isPending ? '불러오는 중...' : money(currentMonthSettlementAmount),
+      '관리자 승인 완료 정산 합계',
+    ],
+  ]
   const title =
     section === 'products'
       ? '상품 관리'
@@ -2915,12 +2939,7 @@ function DashboardPage({
       {section === 'dashboard' && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(seller
-            ? [
-                ['이번 달 주문', '128건', '지난달보다 12% 증가'],
-                ['판매 중 상품', '24개', '3개 품절 임박'],
-                ['배송 대기', '8건', '오늘 처리 필요'],
-                ['이번 달 정산', '1,284,000원', '정산 예정'],
-              ]
+            ? sellerDashboardMetrics
             : [
                 ['전체 회원', '1,248명', '이번 주 42명 가입'],
                 ['판매자 승인 대기', '7건', '확인 필요'],
