@@ -9,8 +9,9 @@ import {
   applyAsSeller,
   sellerLogin,
   type SellerApplicationRequest,
+  type SellerUpdateInput,
 } from './features/sellers/api'
-import { useMySellerApplicationStatus } from './features/sellers/hooks'
+import { useMySellerApplicationStatus, useMySellerInfo, useUpdateMySellerInfo } from './features/sellers/hooks'
 import { useSellerProduct, useSellerProductMutations, useSellerProducts, useSellerStocks, useSellerTimeDeals } from './features/seller-products/hooks'
 import type { AppearanceType, ProductCategory, ProductStatus, SaleUnit } from './features/seller-products/api'
 import {
@@ -2134,6 +2135,60 @@ const emptySellerApplication: SellerApplicationRequest = {
   slackId: '',
 }
 
+const emptySellerReapply: SellerUpdateInput = {
+  companyName: '',
+  bizAddress: '',
+  managerName: '',
+  managerPhone: '',
+  managerEmail: '',
+  slackId: '',
+}
+
+function SellerReapplyPage() {
+  const navigate = useNavigate()
+  const profileQuery = useMySellerInfo(Boolean(authStorage.getAccessToken()))
+  const mutation = useUpdateMySellerInfo()
+  const [form, setForm] = useState<SellerUpdateInput>(emptySellerReapply)
+
+  useEffect(() => {
+    if (profileQuery.data) {
+      setForm({
+        companyName: profileQuery.data.companyName,
+        bizAddress: profileQuery.data.bizAddress,
+        managerName: profileQuery.data.managerName,
+        managerPhone: profileQuery.data.managerPhone,
+        managerEmail: profileQuery.data.managerEmail,
+        slackId: profileQuery.data.slackId ?? '',
+      })
+    }
+  }, [profileQuery.data])
+
+  const fields: Array<[keyof SellerUpdateInput, string, string, 'text' | 'email']> = [
+    ['companyName', '업체명', '업체명', 'text'],
+    ['bizAddress', '사업장 주소', '사업장 주소', 'text'],
+    ['managerName', '담당자명', '담당자명', 'text'],
+    ['managerPhone', '담당자 전화번호', '담당자 전화번호', 'text'],
+    ['managerEmail', '담당자 이메일', '담당자 이메일', 'email'],
+    ['slackId', 'Slack ID', '선택 입력', 'text'],
+  ]
+
+  return (
+    <div className="min-h-screen bg-emerald-50 px-5 py-10 sm:py-16">
+      <div className="mx-auto max-w-2xl rounded-3xl bg-white p-7 shadow-xl shadow-emerald-900/5 sm:p-10">
+        <Link to="/" className="text-xl font-black text-emerald-700">parut<span className="text-orange-500">.</span></Link>
+        <p className="mt-10 text-sm font-bold text-emerald-700">SELLER RE-APPLICATION</p>
+        <h1 className="mt-2 text-3xl font-black">판매자 재신청</h1>
+        <p className="mt-2 text-sm text-slate-500">기존 신청 정보를 수정해 다시 심사를 요청합니다.</p>
+        {profileQuery.isPending ? <div className="mt-8 h-64 animate-pulse rounded-xl bg-slate-100" /> : profileQuery.isError || !profileQuery.data ? <p className="mt-8 text-sm text-red-600">판매자 정보를 불러오지 못했습니다.</p> : <form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ sellerId: profileQuery.data.id, input: form }, { onSuccess: () => navigate('/seller') }) }}>
+          {fields.map(([field, label, placeholder, type]) => <label key={field} className={field === 'bizAddress' ? 'sm:col-span-2' : ''}><span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span><input required={field !== 'slackId'} value={form[field] ?? ''} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500" placeholder={placeholder} type={type} /></label>)}
+          {mutation.isError && <p className="sm:col-span-2 text-xs text-red-600">재신청에 실패했습니다. 입력값과 로그인 상태를 확인해주세요.</p>}
+          <button disabled={mutation.isPending} className="sm:col-span-2 rounded-xl bg-emerald-700 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{mutation.isPending ? '재신청 중...' : '재신청하기'}</button>
+        </form>}
+      </div>
+    </div>
+  )
+}
+
 function SellerApplyPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptySellerApplication)
@@ -2306,7 +2361,7 @@ function SellerAccessPage({ section = 'dashboard' }: { section?: string }) {
         </p>
         <div className="mt-8 flex justify-center gap-3">
           {status === 'REJECTED' && (
-            <Link to="/seller/apply" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
+            <Link to="/seller/reapply" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white">
               다시 신청하기
             </Link>
           )}
@@ -3705,6 +3760,7 @@ function App() {
       <Route path="/admin/login" element={<AuthPage />} />
       <Route path="/seller/login" element={<SellerLoginPage />} />
       <Route path="/seller/apply" element={<SellerApplyPage />} />
+      <Route path="/seller/reapply" element={<SellerReapplyPage />} />
       <Route path="/seller" element={<SellerAccessPage />} />
       <Route path="/seller/products" element={<SellerAccessPage section="products" />} />
       <Route path="/seller/stocks" element={<SellerAccessPage section="stocks" />} />
