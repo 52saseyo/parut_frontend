@@ -31,7 +31,7 @@ import type { Refund } from './features/refunds/api'
 import { useDeliveries, useSellerDeliveries, useStartDelivery } from './features/delivery/hooks'
 import type { Delivery } from './features/delivery/api'
 import { useAdminSettlements, useCompleteSettlements, useSellerSettlements } from './features/settlements/hooks'
-import type { SettlementStatus } from './features/settlements/api'
+import { summarizeCompletion, type SettlementStatus } from './features/settlements/api'
 import {
   useAddresses,
   useCreateAddress,
@@ -3194,7 +3194,7 @@ function AdminSettlementManagement() {
   const [status, setStatus] = useState<SettlementStatus>('PENDING')
   const [page, setPage] = useState(0)
   const [selectedSettlementIds, setSelectedSettlementIds] = useState<string[]>([])
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ text: string; tone: 'success' | 'warn' } | null>(null)
   const settlementsQuery = useAdminSettlements(status, page)
   const completeMutation = useCompleteSettlements()
   const settlements = settlementsQuery.data?.content ?? []
@@ -3212,7 +3212,7 @@ function AdminSettlementManagement() {
     setSelectedSettlementIds((current) => {
       if (current.includes(settlementId)) return current.filter((id) => id !== settlementId)
       if (current.length >= 50) {
-        setMessage('정산 승인은 최대 50건까지 선택할 수 있습니다.')
+        setMessage({ text: '정산 승인은 최대 50건까지 선택할 수 있습니다.', tone: 'warn' })
         return current
       }
       return [...current, settlementId]
@@ -3225,17 +3225,30 @@ function AdminSettlementManagement() {
       return
     }
     setSelectedSettlementIds(selectableSettlements.slice(0, 50).map((settlement) => settlement.settlementId))
-    if (selectableSettlements.length > 50) setMessage('정산 승인은 최대 50건까지만 선택됩니다.')
+    if (selectableSettlements.length > 50) setMessage({ text: '정산 승인은 최대 50건까지만 선택됩니다.', tone: 'warn' })
   }
 
   function completeSelected() {
     if (selectedSettlementIds.length === 0) return
     completeMutation.mutate(selectedSettlementIds, {
-      onSuccess: () => {
+      // 응답은 요청한 정산을 모두 담고 항목마다 처리 결과가 다르므로 건수로 나눠 안내한다.
+      onSuccess: (items) => {
         setSelectedSettlementIds([])
-        setMessage('선택한 정산을 완료 처리했습니다.')
+        const { total, succeeded, failed } = summarizeCompletion(items)
+        if (failed === 0) {
+          setMessage({ text: `선택한 ${total}건을 모두 완료 처리했습니다.`, tone: 'success' })
+          return
+        }
+        if (succeeded === 0) {
+          setMessage({ text: `선택한 ${total}건을 모두 처리하지 못했습니다.`, tone: 'warn' })
+          return
+        }
+        setMessage({
+          text: `선택한 ${total}건 중 ${succeeded}건을 완료했고 ${failed}건은 처리하지 못했습니다.`,
+          tone: 'warn',
+        })
       },
-      onError: () => setMessage('정산 완료 처리에 실패했습니다. 대상 상태를 확인해주세요.'),
+      onError: () => setMessage({ text: '정산 완료 처리에 실패했습니다.', tone: 'warn' }),
     })
   }
 
@@ -3260,7 +3273,15 @@ function AdminSettlementManagement() {
           )}
         </div>
       </div>
-      {message && <p className="border-b border-slate-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">{message}</p>}
+      {message && (
+        <p
+          className={`border-b border-slate-100 px-5 py-3 text-sm ${
+            message.tone === 'warn' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {message.text}
+        </p>
+      )}
       {settlementsQuery.isPending && <div className="h-48 animate-pulse bg-slate-50" />}
       {settlementsQuery.isError && <p className="p-10 text-center text-sm text-red-600">전체 정산 목록을 불러오지 못했습니다.</p>}
       {!settlementsQuery.isPending && !settlementsQuery.isError && settlements.length === 0 && (
@@ -3283,10 +3304,10 @@ function AdminSettlementManagement() {
                 <th className="px-5 py-3">정산 ID</th>
                 <th className="px-5 py-3">판매자 ID</th>
                 <th className="px-5 py-3">주문상품 ID</th>
-                <th className="px-5 py-3">판매 금액</th>
-                <th className="px-5 py-3">정산 금액</th>
-                <th className="px-5 py-3">상태</th>
-                <th className="px-5 py-3">생성일</th>
+                <th className="whitespace-nowrap px-5 py-3">판매 금액</th>
+                <th className="whitespace-nowrap px-5 py-3">정산 금액</th>
+                <th className="whitespace-nowrap px-5 py-3">상태</th>
+                <th className="whitespace-nowrap px-5 py-3">생성일</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -3304,10 +3325,10 @@ function AdminSettlementManagement() {
                   <td className="px-5 py-4 font-mono text-xs">{settlement.settlementId}</td>
                   <td className="px-5 py-4 font-mono text-xs">{settlement.sellerId}</td>
                   <td className="px-5 py-4 font-mono text-xs">{settlement.orderItemId}</td>
-                  <td className="px-5 py-4">{money(settlement.salesAmount)}</td>
-                  <td className="px-5 py-4 font-bold">{money(settlement.settlementAmount)}</td>
-                  <td className="px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
-                  <td className="px-5 py-4 text-xs text-slate-500">{new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</td>
+                  <td className="whitespace-nowrap px-5 py-4 text-xs">{money(settlement.salesAmount)}</td>
+                  <td className="whitespace-nowrap px-5 py-4 text-xs font-bold">{money(settlement.settlementAmount)}</td>
+                  <td className="whitespace-nowrap px-5 py-4"><StatusBadge tone={settlementStatusTone(settlement.status)}>{settlementStatusLabel(settlement.status)}</StatusBadge></td>
+                  <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">{new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</td>
                 </tr>
               ))}
             </tbody>
