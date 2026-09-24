@@ -28,3 +28,4 @@
 ## 변경 시 문서화
 
 새로운 기술 선택, API 규칙, 화면 흐름, 인증 방식 또는 팀 작업 규칙이 생기면 관련 문서를 먼저 갱신합니다. 문서와 구현이 달라지면 구현보다 문서를 방치하지 말고 함께 수정합니다.
+- [API implementation roadmap](./docs/10-api-implementation-roadmap.md)
