@@ -93,3 +93,16 @@ checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 ## 인증
 
 인증 방식은 백엔드 `develop`의 실제 API 계약을 확인한 후 확정합니다. 토큰 저장 위치와 갱신 방식은 임의로 결정하지 않습니다.
+-
+## 알림 API 현재 연동 상태
+
+앞서 작성된 알림 서비스 미구현 안내는 현재 기준으로 갱신합니다. 프론트엔드는 다음 notification-service API를 사용합니다.
+
+- `GET /api/v1/notifications`: 로그인 사용자의 알림 목록 조회. 목록 조회 시 `size`를 직접 전달하지 않고 백엔드 기본값을 사용합니다.
+- `GET /api/v1/notifications/unread-count`: 로그인 사용자의 읽지 않은 알림 개수 조회
+- `PATCH /api/v1/notifications/{notificationId}/read`: 알림 읽음 처리
+- `GET /api/v1/notification-subscriptions/time-deals/{timeDealId}`: 로그인 사용자의 특정 타임딜 구독 여부 조회
+- `POST /api/v1/notification-subscriptions/time-deals`: 특정 타임딜 오픈 알림 신청
+- `PATCH /api/v1/notification-subscriptions/time-deals/{timeDealId}`: 특정 타임딜 오픈 알림 해제
+
+구독 API는 Bearer access token으로 현재 사용자를 식별하며, 프론트에서 사용자 ID를 직접 전달하지 않습니다.
