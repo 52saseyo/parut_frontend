@@ -103,6 +103,6 @@ checkout 주문 식별자는 주문 유형에 따라 분리합니다.
 - `PATCH /api/v1/notifications/{notificationId}/read`: 알림 읽음 처리
 - `GET /api/v1/notification-subscriptions/time-deals/{timeDealId}`: 로그인 사용자의 특정 타임딜 구독 여부 조회
 - `POST /api/v1/notification-subscriptions/time-deals`: 특정 타임딜 오픈 알림 신청
-- `PATCH /api/v1/notification-subscriptions/time-deals/{timeDealId}`: 특정 타임딜 오픈 알림 해제
+- `PATCH /api/v1/notification-subscriptions/time-deals/{timeDealId}/unsubscribe`: 특정 타임딜 오픈 알림 해제
 
 구독 API는 Bearer access token으로 현재 사용자를 식별하며, 프론트에서 사용자 ID를 직접 전달하지 않습니다.

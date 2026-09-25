@@ -58,7 +58,7 @@ export async function subscribeToTimeDeal(timeDealId: string) {
 
 export async function unsubscribeFromTimeDeal(timeDealId: string) {
   await apiClient.patch<ApiResponse<null>>(
-    `/api/v1/notification-subscriptions/time-deals/${timeDealId}`,
+    `/api/v1/notification-subscriptions/time-deals/${timeDealId}/unsubscribe`,
   )
 }
 

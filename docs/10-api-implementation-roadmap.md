@@ -56,7 +56,7 @@
 | 판매자 환불 운영 | `GET /api/v1/refunds`, `PATCH /api/v1/refunds/approve`, `PATCH /api/v1/refunds/{refundId}/reject` | `/seller/orders` 또는 별도 환불 관리 |
 | 관리자 환불·배송 | `GET /api/v1/admin/refunds`, `GET /api/v1/admin/deliveries` | `/admin/orders` 운영 테이블 |
 | 알림 | `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `PATCH /api/v1/notifications/{notificationId}/read` | `/notifications`, 헤더 읽지 않은 알림 수 |
-| 타임딜 알림 구독 | `/api/v1/notification-subscriptions/time-deals` | 타임딜 상세 알림 신청·해제 |
+| 타임딜 알림 구독 | `POST /api/v1/notification-subscriptions/time-deals`, `PATCH /api/v1/notification-subscriptions/time-deals/{timeDealId}/unsubscribe` | 타임딜 상세 알림 신청·해제 |
 | 내 정보 변경 | `PATCH /api/v1/users/{id}`, `DELETE /api/v1/users/{id}` | `/me` 프로필 수정·탈퇴 |
 
 ## 3. 구현 순서
