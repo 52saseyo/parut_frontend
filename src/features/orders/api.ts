@@ -55,10 +55,21 @@ export type OrderDetailResponse = {
     approvedAt: string | null
     receiptUrl: string | null
   } | null
+  cancels: Array<{
+    cancelId: string
+    cancelReasonCode: string
+    cancelReason?: string | null
+    canceledByType: string
+    cancelProductAmount: number
+    cancelDeliveryFee: number
+    cancelTotalAmount: number
+    refundRequired: boolean
+    canceledAt: string
+  }>
   deliveryGroups: Array<{
     deliveryGroupId: string
     sellerId: string
-    groupStatus: 'PREPARING' | 'SHIPPED' | 'DELIVERED'
+    groupStatus: 'PENDING' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'CANCELED'
     productAmount: number
     deliveryFee: number
     items: Array<{
@@ -118,6 +129,25 @@ export type PaymentConfirmInput = {
   paymentKey: string
   tossOrderId: string
   amount: number
+}
+
+export type CancelOrderInput = {
+  orderId: string
+  orderItemIds: string[]
+  cancelReason?: string
+}
+
+export type OrderCancelResponse = {
+  cancelId: string
+  orderId: string
+  canceledAmount: number
+  cancelReasonCode: 'CUSTOMER_CANCEL'
+  canceledByType: 'CUSTOMER'
+  cancelProductAmount: number
+  cancelDeliveryFee: number
+  cancelTotalAmount: number
+  refundRequired: boolean
+  canceledAt: string
 }
 
 export function createOrderPayload(input: CreateOrderInput) {
@@ -186,6 +216,19 @@ export async function confirmPayment(input: PaymentConfirmInput) {
   const response = await apiClient.post<ApiResponse<unknown>>('/api/v1/payments/confirm', input, {
     headers: { 'Idempotency-Key': idempotencyKey() },
   })
+  return response.data.data
+}
+
+export async function cancelOrder({ orderId, orderItemIds, cancelReason }: CancelOrderInput) {
+  const response = await apiClient.post<ApiResponse<OrderCancelResponse>>(
+    `/api/v1/orders/${orderId}/cancel`,
+    {
+      orderItemIds,
+      cancelReasonCode: 'CUSTOMER_CANCEL',
+      cancelReason,
+    },
+    { headers: { 'Idempotency-Key': idempotencyKey() } },
+  )
   return response.data.data
 }
 
