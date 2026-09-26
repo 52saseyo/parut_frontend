@@ -17,6 +17,7 @@ import type { AppearanceType, ProductCategory, ProductStatus, SaleUnit } from '.
 import {
   useCreateOrder,
   useCreateTimeDealOrder,
+  useCancelOrder,
   useConfirmPayment,
   useConfirmOrderItem,
   useOrder,
@@ -1231,11 +1232,22 @@ function OrderDetailPage() {
   const refundMutation = useRequestRefund()
   const cancelRefundMutation = useCancelRefund()
   const confirmOrderItemMutation = useConfirmOrderItem()
+  const cancelOrderMutation = useCancelOrder()
   const deliveriesQuery = useDeliveries({ orderId }, Boolean(orderId))
   const refundsQuery = useRefunds(Boolean(orderId))
   const firstDeliveryGroup = orderQuery.data?.deliveryGroups[0]
   const firstOrderItem = firstDeliveryGroup?.items[0]
   const firstOrderItemId = firstOrderItem?.orderItemId
+  const cancelableOrderItemIds =
+    orderQuery.data?.deliveryGroups.flatMap((group) =>
+      group.items.filter((item) => item.cancelable).map((item) => item.orderItemId),
+    ) ?? []
+  const canCancelOrder = cancelableOrderItemIds.length > 0
+  const orderItems = orderQuery.data?.deliveryGroups.flatMap((group) => group.items) ?? []
+  const hasCancellation = (orderQuery.data?.cancels.length ?? 0) > 0
+  const fullyCanceled =
+    orderItems.length > 0 &&
+    orderItems.every((item) => item.itemStatus === 'CANCELED' || item.itemStatus === 'REFUNDED')
   const currentRefund = refundsQuery.data?.content.find(
     (refund) => refund.orderItemId === firstOrderItemId,
   )
@@ -1255,7 +1267,11 @@ function OrderDetailPage() {
       firstOrderItem?.itemStatus === 'ORDERED',
   )
   const displayOrderId = orderQuery.data?.orderNo ?? orderId
-  const displayStatus = orderQuery.data?.orderStatus ?? '배송 준비 중'
+  const displayStatus = hasCancellation
+    ? fullyCanceled
+      ? '구매 취소'
+      : '일부 취소'
+    : orderQuery.data?.orderStatus ?? '배송 준비 중'
   if (orderQuery.isError) {
     return (
       <PublicLayout>
@@ -1292,6 +1308,17 @@ function OrderDetailPage() {
           <StatusBadge tone={orderQuery.data ? 'green' : 'orange'}>{displayStatus}</StatusBadge>
         </div>
         <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]">
+          {hasCancellation && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 lg:col-span-2">
+              <p className="font-bold">{fullyCanceled ? '구매 취소된 주문입니다.' : '일부 상품이 취소된 주문입니다.'}</p>
+              <p className="mt-1 text-xs text-rose-700">
+                취소 금액 {money(orderQuery.data?.canceledAmount ?? 0)} · 최근 취소 처리{' '}
+                {orderQuery.data?.cancels.at(-1)?.canceledAt
+                  ? formatApplicationDate(orderQuery.data.cancels.at(-1)!.canceledAt)
+                  : '-'}
+              </p>
+            </div>
+          )}
           <section className="rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="font-bold">주문 상품</h2>
             <div className="mt-5 flex items-center gap-4">
@@ -1384,6 +1411,31 @@ function OrderDetailPage() {
                   ? '구매확정 완료'
                   : '구매확정'}
             </button>
+            {canCancelOrder && (
+              <>
+                <button
+                  type="button"
+                  disabled={cancelOrderMutation.isPending}
+                  onClick={() => {
+                    if (!orderId) return
+                    if (!window.confirm('배송 전에 이 주문을 취소하시겠습니까?')) return
+                    cancelOrderMutation.mutate({
+                      orderId,
+                      orderItemIds: cancelableOrderItemIds,
+                    })
+                  }}
+                  className="mt-3 w-full rounded-xl border border-rose-300 px-4 py-3 text-sm font-bold text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cancelOrderMutation.isPending ? '구매 취소 중...' : '구매 취소'}
+                </button>
+                {cancelOrderMutation.isSuccess && (
+                  <p className="mt-3 text-xs text-emerald-300">구매 취소가 완료되었습니다.</p>
+                )}
+                {cancelOrderMutation.isError && (
+                  <p className="mt-3 text-xs text-rose-300">구매 취소에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+                )}
+              </>
+            )}
             {!canConfirmOrderItem && firstOrderItem?.itemStatus !== 'CONFIRMED' && (
               <p className="mt-3 text-xs text-slate-400">배송 완료된 상품만 구매확정할 수 있습니다.</p>
             )}

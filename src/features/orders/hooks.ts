@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmOrderItem,
   confirmPayment,
+  cancelOrder,
   createOrder,
   createTimeDealOrder,
   getOrder,
@@ -57,6 +58,17 @@ export function usePreparePayment() {
 
 export function useConfirmPayment() {
   return useMutation({ mutationFn: confirmPayment })
+}
+
+export function useCancelOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: cancelOrder,
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+      void queryClient.invalidateQueries({ queryKey: orderKeys.list() })
+    },
+  })
 }
 
 export function useConfirmOrderItem() {
