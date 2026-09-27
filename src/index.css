@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* The time-deal editor below the management table is the full editor. */
+form.flex.flex-wrap.items-end.gap-3 {
+  display: none;
+}
+
 :root {
   font-family:
     Inter,
