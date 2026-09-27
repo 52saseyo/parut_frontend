@@ -30,7 +30,7 @@ export function useUnreadNotificationCount(enabled = true) {
     queryKey: notificationKeys.unreadCount,
     queryFn: getUnreadNotificationCount,
     enabled,
-    refetchInterval: 30_000,
+    refetchInterval: 180_000,
   })
 }
 
