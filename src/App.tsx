@@ -3142,14 +3142,58 @@ function SellerTimeDealStockManagement() {
   const stocksQuery = useSellerTimeDeals()
   const stocks = stocksQuery.data?.content ?? []
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingAction, setEditingAction] = useState<'adjust' | 'transfer'>('adjust')
   const [quantity, setQuantity] = useState('')
   const [stockMessage, setStockMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const submitStockAction = (deal: (typeof stocks)[number]) => {
+    const amount = Number(quantity)
+    setStockMessage(null)
+
+    if (editingAction === 'transfer') {
+      if (!deal.productId) {
+        setStockMessage({ type: 'error', text: '일반 상품과 연결되지 않은 타임딜입니다.' })
+        return
+      }
+      mutations.transferTimeDealStock.mutate(
+        { timeDealId: deal.timeDealId, productId: deal.productId, quantity: amount },
+        {
+          onSuccess: () => {
+            setEditingId(null)
+            setStockMessage({ type: 'success', text: '일반 상품 재고가 타임딜로 이관되었습니다.' })
+          },
+          onError: (error) =>
+            setStockMessage({
+              type: 'error',
+              text: sellerActionErrorMessage(error, '일반 상품 재고 이관에 실패했습니다. 이관 수량과 타임딜 상태를 확인해주세요.'),
+            }),
+        },
+      )
+      return
+    }
+
+    mutations.adjustTimeDealStock.mutate(
+      { timeDealId: deal.timeDealId, quantity: amount },
+      {
+        onSuccess: () => {
+          setEditingId(null)
+          setStockMessage({ type: 'success', text: '타임딜 재고가 조정되었습니다.' })
+        },
+        onError: (error) =>
+          setStockMessage({
+            type: 'error',
+            text: sellerActionErrorMessage(error, '타임딜 재고 조정에 실패했습니다. 조정 수량과 타임딜 상태를 확인해주세요.'),
+          }),
+      },
+    )
+  }
+
   return (
     <section className="mt-8 space-y-5">
       <div>
         <p className="text-sm font-bold text-orange-600">TIME DEAL STOCK</p>
         <h2 className="mt-2 font-bold text-slate-950">타임딜 재고 관리</h2>
-        <p className="mt-1 text-sm text-slate-500">일반 상품 재고와 분리된 타임딜 판매 재고를 조정하는 영역입니다.</p>
+        <p className="mt-1 text-sm text-slate-500">판매 예정(SCHEDULED) 타임딜만 재고를 조정하거나 일반 상품 재고를 이관할 수 있습니다.</p>
       </div>
       {sellerMutationPending(mutations) && <SellerActionOverlay />}
       {stockMessage && <div role="status" className={`rounded-xl border px-4 py-3 text-sm font-semibold ${stockMessage.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}>{stockMessage.text}</div>}
@@ -3161,7 +3205,45 @@ function SellerTimeDealStockManagement() {
         {stocksQuery.isPending && <div className="p-10 text-center text-sm text-slate-500">재고를 불러오는 중입니다.</div>}
         {stocksQuery.isError && <div className="p-10 text-center text-sm text-red-600">타임딜 재고를 불러오지 못했습니다.</div>}
         {!stocksQuery.isPending && !stocksQuery.isError && stocks.length === 0 && <div className="p-10 text-center text-sm text-slate-500">관리할 타임딜 재고가 없습니다.</div>}
-        {stocks.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">타임딜 ID</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">예약</th><th className="px-5 py-3">판매 완료</th><th className="px-5 py-3">관리</th></tr></thead><tbody className="divide-y divide-slate-100">{stocks.map((deal) => <tr key={deal.timeDealId}><td className="px-5 py-4 font-mono text-xs">{deal.timeDealId}</td><td className="px-5 py-4">{deal.stock.availableQuantity}개</td><td className="px-5 py-4">{deal.stock.reservedQuantity}개</td><td className="px-5 py-4">{deal.stock.soldQuantity}개</td><td className="px-5 py-4">{editingId === deal.timeDealId ? <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); setStockMessage(null); mutations.adjustTimeDealStock.mutate({ timeDealId: deal.timeDealId, quantity: Number(quantity) }, { onSuccess: () => { setEditingId(null); setStockMessage({ type: 'success', text: '타임딜 재고가 조정되었습니다.' }) }, onError: (error) => setStockMessage({ type: 'error', text: sellerActionErrorMessage(error, '타임딜 재고 조정에 실패했습니다. 조정 수량과 타임딜 상태를 확인해주세요.') }) }) }}><input required type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-24 rounded-lg border border-slate-200 px-2 py-1.5" /><button className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-bold text-white">조정</button><button type="button" onClick={() => setEditingId(null)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">취소</button></form> : <button type="button" onClick={() => { setEditingId(deal.timeDealId); setQuantity(''); setStockMessage(null) }} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">재고 조정</button>}</td></tr>)}</tbody></table></div>}
+        {stocks.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr><th className="px-5 py-3">타임딜 ID</th><th className="px-5 py-3">상태</th><th className="px-5 py-3">판매 가능</th><th className="px-5 py-3">예약</th><th className="px-5 py-3">판매 완료</th><th className="px-5 py-3">관리</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stocks.map((deal) => (
+                  <tr key={deal.timeDealId}>
+                    <td className="px-5 py-4 font-mono text-xs">{deal.timeDealId}</td>
+                    <td className="px-5 py-4">
+                      <StatusBadge tone={deal.status === 'SCHEDULED' ? 'blue' : deal.status === 'ACTIVE' ? 'green' : 'slate'}>
+                        {deal.status}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-5 py-4">{deal.stock.availableQuantity}개</td>
+                    <td className="px-5 py-4">{deal.stock.reservedQuantity}개</td>
+                    <td className="px-5 py-4">{deal.stock.soldQuantity}개</td>
+                    <td className="px-5 py-4">
+                      {editingId === deal.timeDealId && deal.status === 'SCHEDULED' ? (
+                        <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); submitStockAction(deal) }}>
+                          <input required type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-24 rounded-lg border border-slate-200 px-2 py-1.5" placeholder="수량" />
+                          <button className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-bold text-white">{editingAction === 'transfer' ? '이관' : '조정'}</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">취소</button>
+                        </form>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" disabled={deal.status !== 'SCHEDULED'} onClick={() => { setEditingId(deal.timeDealId); setEditingAction('adjust'); setQuantity(''); setStockMessage(null) }} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">재고 조정</button>
+                          <button type="button" disabled={deal.status !== 'SCHEDULED' || !deal.productId} title={!deal.productId ? '일반 상품과 연결된 타임딜만 이관할 수 있습니다.' : undefined} onClick={() => { setEditingId(deal.timeDealId); setEditingAction('transfer'); setQuantity(''); setStockMessage(null) }} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40">일반 상품에서 이관</button>
+                          {deal.status !== 'SCHEDULED' && <span className="self-center text-xs text-slate-400">판매 예정 상태에서만 관리 가능</span>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   )
