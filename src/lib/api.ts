@@ -3,6 +3,13 @@ import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 const ACCESS_TOKEN_KEY = 'parut.accessToken'
 const REFRESH_TOKEN_KEY = 'parut.refreshToken'
+const API_BASE_URL = import.meta.env.DEV
+  ? 'http://localhost:8080'
+  : import.meta.env.VITE_API_BASE_URL
+
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_BASE_URL이 설정되지 않았습니다.')
+}
 
 export const authStorage = {
   getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
@@ -28,7 +35,7 @@ export const authStorage = {
 }
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
