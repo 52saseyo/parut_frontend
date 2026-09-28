@@ -1877,6 +1877,93 @@ function CheckoutPage() {
   )
 }
 
+function PaymentSuccessPage() {
+  const [searchParams] = useSearchParams()
+  const paymentKey = searchParams.get('paymentKey')
+  const tossOrderId = searchParams.get('orderId')
+  const amountParam = searchParams.get('amount')
+  const amount = amountParam ? Number(amountParam) : null
+  const hasValidPaymentParams = Boolean(
+    paymentKey &&
+      tossOrderId &&
+      amount !== null &&
+      Number.isSafeInteger(amount) &&
+      amount > 0,
+  )
+
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-xl px-5 py-20 sm:py-28">
+        <section className="rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-sm sm:p-10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
+            {hasValidPaymentParams ? '✓' : '!'}
+          </div>
+          <h1 className="mt-6 text-2xl font-black text-slate-950">
+            {hasValidPaymentParams ? '결제가 승인되었습니다' : '결제 정보를 확인할 수 없습니다'}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            {hasValidPaymentParams
+              ? '결제 승인 처리 중입니다. 잠시 후 주문 상태를 확인할 수 있습니다.'
+              : '결제 결과 정보가 누락되었습니다. 주문 내역에서 상태를 확인해주세요.'}
+          </p>
+          {hasValidPaymentParams && (
+            <div className="mt-7 space-y-3 rounded-2xl bg-slate-50 p-5 text-left text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">주문번호</span>
+                <span className="max-w-[70%] truncate font-mono font-semibold text-slate-900">{tossOrderId}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">결제 금액</span>
+                <span className="font-bold text-slate-900">{amount?.toLocaleString('ko-KR')}원</span>
+              </div>
+            </div>
+          )}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link to="/orders" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800">
+              주문 내역 보기
+            </Link>
+            {!hasValidPaymentParams && (
+              <Link to="/checkout" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                결제 화면으로 돌아가기
+              </Link>
+            )}
+          </div>
+        </section>
+      </main>
+    </PublicLayout>
+  )
+}
+
+function PaymentFailPage() {
+  const [searchParams] = useSearchParams()
+  const code = searchParams.get('code')
+  const message = searchParams.get('message')
+  const tossOrderId = searchParams.get('orderId')
+
+  return (
+    <PublicLayout>
+      <main className="mx-auto max-w-xl px-5 py-20 sm:py-28">
+        <section className="rounded-3xl border border-orange-200 bg-white p-7 text-center shadow-sm sm:p-10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 text-3xl">!</div>
+          <h1 className="mt-6 text-2xl font-black text-slate-950">결제가 취소되었거나 실패했습니다</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">결제 확정은 처리되지 않았습니다. 결제 정보를 확인한 후 다시 시도해주세요.</p>
+          {(code || message || tossOrderId) && (
+            <div className="mt-7 space-y-3 rounded-2xl bg-slate-50 p-5 text-left text-sm">
+              {code && <div className="flex items-center justify-between gap-4"><span className="text-slate-500">오류 코드</span><span className="font-mono font-semibold text-slate-900">{code}</span></div>}
+              {message && <div className="flex items-start justify-between gap-4"><span className="shrink-0 text-slate-500">상세 내용</span><span className="text-right font-semibold text-slate-900">{message}</span></div>}
+              {tossOrderId && <div className="flex items-center justify-between gap-4"><span className="text-slate-500">주문번호</span><span className="max-w-[70%] truncate font-mono font-semibold text-slate-900">{tossOrderId}</span></div>}
+            </div>
+          )}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link to="/checkout" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800">다시 결제하기</Link>
+            <Link to="/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">주문 내역 보기</Link>
+          </div>
+        </section>
+      </main>
+    </PublicLayout>
+  )
+}
+
 function CartPage() {
   const isAuthenticated = Boolean(authStorage.getAccessToken())
   const cartItems = [
@@ -4200,6 +4287,8 @@ function App() {
       <Route path="/products/:productId" element={<ProductDetailPage />} />
       <Route path="/time-deals/:productId" element={<ProductDetailPage timeDeal />} />
       <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/payment/fail" element={<PaymentFailPage />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
