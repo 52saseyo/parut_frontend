@@ -118,7 +118,7 @@ export type PaymentReadyResponse = {
   tossOrderId: string
   orderName: string
   amount: number
-  customerName: string
+  customerName: string | null
   successUrl: string
   failUrl: string
   expiresAt: string
