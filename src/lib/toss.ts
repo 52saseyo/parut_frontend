@@ -22,15 +22,15 @@ export function getTossPayments() {
 }
 
 /**
- * 결제창 호출에 사용할 Toss 결제 객체를 생성합니다.
+ * 최신 결제위젯 SDK에서 사용할 결제 인스턴스를 생성합니다.
  * customerKey는 로그인한 회원을 식별할 수 있는 안정적인 값이어야 합니다.
  */
-export async function getTossPayment(customerKey: string) {
+export async function getTossWidgets(customerKey: string) {
   const normalizedCustomerKey = customerKey.trim()
   if (!normalizedCustomerKey) {
     throw new Error('Toss Payments customerKey가 필요합니다.')
   }
 
   const tossPayments = await getTossPayments()
-  return tossPayments.payment({ customerKey: normalizedCustomerKey })
+  return tossPayments.widgets({ customerKey: normalizedCustomerKey })
 }

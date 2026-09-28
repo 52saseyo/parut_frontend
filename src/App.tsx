@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { adminLogin, login, logout, signup } from './features/auth/api'
@@ -24,7 +24,7 @@ import {
   useOrders,
   usePreparePayment,
 } from './features/orders/hooks'
-import type { Recipient } from './features/orders/api'
+import { cancelOrder, getOrder, type Recipient } from './features/orders/api'
 import type { ApiProduct, ApiProductDetail } from './features/products/api'
 import { useProduct, useProducts } from './features/products/hooks'
 import { useApproveRefunds, useCancelRefund, useRefunds, useRejectRefund, useRequestRefund } from './features/refunds/hooks'
@@ -52,6 +52,7 @@ import {
   useUnreadNotificationCount,
 } from './features/notifications/hooks'
 import { authStorage } from './lib/api'
+import { getTossWidgets } from './lib/toss'
 
 type Product = {
   id: string
@@ -151,6 +152,7 @@ const products: Product[] = [
 
 const money = (value: number) => `${value.toLocaleString('ko-KR')}원`
 const checkoutDraftKey = 'parut.checkout.draft'
+const pendingPaymentOrderKey = 'parut.pending-payment-order-id'
 
 type CheckoutState = {
   productId?: string
@@ -168,6 +170,22 @@ function readCheckoutDraft(): CheckoutState | null {
     sessionStorage.removeItem(checkoutDraftKey)
     return null
   }
+}
+
+async function cancelUnpaidOrder(orderId: string) {
+  const order = await getOrder(orderId)
+  const orderItemIds = order.deliveryGroups.flatMap((group) =>
+    group.items.filter((item) => item.cancelable).map((item) => item.orderItemId),
+  )
+
+  if (orderItemIds.length === 0) return false
+
+  await cancelOrder({
+    orderId,
+    orderItemIds,
+    cancelReason: '결제창 취소',
+  })
+  return true
 }
 
 const categoryMap: Record<string, ApiProduct['category']> = {
@@ -1506,7 +1524,6 @@ function CheckoutPage() {
   const orderMutation = useCreateOrder()
   const timeDealOrderMutation = useCreateTimeDealOrder()
   const paymentMutation = usePreparePayment()
-  const confirmPaymentMutation = useConfirmPayment()
   const locationState = location.state as CheckoutState | null
   const state = locationState ?? readCheckoutDraft()
   const isTimeDeal = Boolean(state?.timeDeal)
@@ -1542,8 +1559,6 @@ function CheckoutPage() {
       deliveryRequest: '',
     }
   })
-  const [submitted, setSubmitted] = useState(false)
-  const [apiOrderNo, setApiOrderNo] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
@@ -1608,20 +1623,53 @@ function CheckoutPage() {
       orderId: created.orderId,
       paymentMethod: 'TOSS_PAY',
     })
+
+    sessionStorage.setItem(pendingPaymentOrderKey, created.orderId)
+
+    const customerKey = userQuery.data?.id
+    if (!customerKey) {
+      setValidationError('회원 정보를 확인하지 못했습니다. 다시 로그인해주세요.')
+      return
+    }
+
     setPaymentProcessing(true)
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 5_000))
-      await confirmPaymentMutation.mutateAsync({
-        paymentKey: `MOCK-PAYMENT-${Date.now()}`,
-        tossOrderId: paymentReady.tossOrderId,
-        amount: paymentReady.amount,
+      const widgets = await getTossWidgets(customerKey)
+      await widgets.setAmount({
+        currency: 'KRW',
+        value: paymentReady.amount,
       })
-    } finally {
+      const paymentWindow = await widgets.renderPaymentWindow()
+      paymentWindow.on('paymentRequest', async () => {
+        try {
+          await widgets.requestPayment({
+            orderId: paymentReady.tossOrderId,
+            orderName: paymentReady.orderName,
+            customerName: paymentReady.customerName ?? userQuery.data?.name ?? '고객',
+            successUrl: paymentReady.successUrl,
+            failUrl: paymentReady.failUrl,
+          })
+        } catch (error) {
+          console.error('[Toss Payment] requestPayment failed', error)
+          setValidationError('결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요.')
+        }
+      })
+      paymentWindow.on('cancel', async () => {
+        try {
+          await cancelUnpaidOrder(created.orderId)
+          sessionStorage.removeItem(pendingPaymentOrderKey)
+          setValidationError('결제가 취소되어 주문과 재고 예약을 해제했습니다.')
+        } catch (error) {
+          console.error('[Toss Payment] cancel order failed', error)
+          setValidationError('결제는 취소되었지만 주문 취소에 실패했습니다. 주문 내역을 확인해주세요.')
+        }
+      })
       setPaymentProcessing(false)
+    } catch (error) {
+      console.error('[Toss Payment] renderPaymentWindow failed', error)
+      setPaymentProcessing(false)
+      setValidationError('결제창을 열지 못했습니다. 잠시 후 다시 시도해주세요.')
     }
-    sessionStorage.removeItem(checkoutDraftKey)
-    setApiOrderNo(created.orderNo)
-    setSubmitted(true)
   }
 
   if (!isAuthenticated) {
@@ -1672,39 +1720,17 @@ function CheckoutPage() {
     orderMutation.isPending ||
     timeDealOrderMutation.isPending ||
     paymentMutation.isPending ||
-    confirmPaymentMutation.isPending ||
     paymentProcessing
   const checkoutDataLoading = userQuery.isPending || addressesQuery.isPending
 
-  if (submitted)
-    return (
-      <PublicLayout>
-        <main className="mx-auto flex max-w-xl flex-col items-center px-5 py-28 text-center">
-          <div className="text-6xl">🌱</div>
-          <h1 className="mt-6 text-3xl font-black">주문이 접수됐어요</h1>
-          <p className="mt-3 text-slate-500">
-            결제 준비가 완료됐습니다. 주문 상태는 주문 내역에서 확인할 수 있습니다.
-          </p>
-          {apiOrderNo && (
-            <p className="mt-3 text-sm font-bold text-emerald-700">주문번호 {apiOrderNo}</p>
-          )}
-          <Link
-            to="/orders"
-            className="mt-8 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white"
-          >
-            주문 내역 보기
-          </Link>
-        </main>
-      </PublicLayout>
-    )
   if (paymentProcessing)
     return (
       <PublicLayout>
         <main className="mx-auto flex max-w-xl flex-col items-center px-5 py-28 text-center">
           <div className="h-14 w-14 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
-          <h1 className="mt-7 text-2xl font-black">결제를 승인하고 있어요</h1>
+          <h1 className="mt-7 text-2xl font-black">결제창을 준비하고 있어요</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            테스트 결제 승인 처리 중입니다.
+            Toss 결제창을 준비하고 있습니다.
             <br />
             잠시만 기다려 주세요.
           </p>
@@ -1855,8 +1881,7 @@ function CheckoutPage() {
             </div>
             {(orderMutation.isError ||
               timeDealOrderMutation.isError ||
-              paymentMutation.isError ||
-              confirmPaymentMutation.isError) && (
+              paymentMutation.isError) && (
               <p className="mt-4 text-xs text-red-300">
                 주문 또는 결제 준비에 실패했습니다. 로그인 상태와 백엔드 응답을 확인해주세요.
               </p>
@@ -1879,6 +1904,7 @@ function CheckoutPage() {
 
 function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
+  const confirmPaymentMutation = useConfirmPayment()
   const paymentKey = searchParams.get('paymentKey')
   const tossOrderId = searchParams.get('orderId')
   const amountParam = searchParams.get('amount')
@@ -1890,21 +1916,57 @@ function PaymentSuccessPage() {
       Number.isSafeInteger(amount) &&
       amount > 0,
   )
+  const [confirmationStatus, setConfirmationStatus] = useState<'confirming' | 'success' | 'error'>(
+    hasValidPaymentParams ? 'confirming' : 'error',
+  )
+  const confirmationStartedRef = useRef(false)
+
+  const confirmPaymentRequest = useCallback(async () => {
+    if (!paymentKey || !tossOrderId || amount === null) return
+
+    try {
+      await confirmPaymentMutation.mutateAsync({ paymentKey, tossOrderId, amount })
+      sessionStorage.removeItem(pendingPaymentOrderKey)
+      setConfirmationStatus('success')
+    } catch (error) {
+      console.error('[Toss Payment] confirmPayment failed', error)
+      setConfirmationStatus('error')
+    }
+  }, [amount, confirmPaymentMutation, paymentKey, tossOrderId])
+
+  useEffect(() => {
+    if (!hasValidPaymentParams || confirmationStartedRef.current) return
+    confirmationStartedRef.current = true
+    void confirmPaymentRequest()
+  }, [confirmPaymentRequest, hasValidPaymentParams])
+
+  const confirmationSuccess = confirmationStatus === 'success'
+  const confirmationError = confirmationStatus === 'error'
 
   return (
     <PublicLayout>
       <main className="mx-auto max-w-xl px-5 py-20 sm:py-28">
         <section className="rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-sm sm:p-10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
-            {hasValidPaymentParams ? '✓' : '!'}
+            {confirmationSuccess ? '✓' : confirmationError ? '!' : '…'}
           </div>
           <h1 className="mt-6 text-2xl font-black text-slate-950">
-            {hasValidPaymentParams ? '결제가 승인되었습니다' : '결제 정보를 확인할 수 없습니다'}
+            {!hasValidPaymentParams
+              ? '결제 정보를 확인할 수 없습니다'
+              : confirmationSuccess
+                ? '결제가 완료되었습니다'
+                : confirmationError
+                  ? '결제 확정에 실패했습니다'
+                  : '결제를 확정하고 있습니다'}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            {hasValidPaymentParams
-              ? '결제 승인 처리 중입니다. 잠시 후 주문 상태를 확인할 수 있습니다.'
-              : '결제 결과 정보가 누락되었습니다. 주문 내역에서 상태를 확인해주세요.'}
+            {!hasValidPaymentParams
+              ? '결제 결과 정보가 누락되었습니다. 주문 내역에서 상태를 확인해주세요.'
+              : confirmationSuccess
+                ? '결제와 주문 처리가 완료되었습니다.'
+                : confirmationError
+                  ? '결제 정보는 확인되었지만 최종 승인에 실패했습니다. 잠시 후 다시 시도해주세요.'
+                  : '잠시만 기다려 주세요.'}
           </p>
           {hasValidPaymentParams && (
             <div className="mt-7 space-y-3 rounded-2xl bg-slate-50 p-5 text-left text-sm">
@@ -1919,12 +1981,28 @@ function PaymentSuccessPage() {
             </div>
           )}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Link to="/orders" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800">
-              주문 내역 보기
-            </Link>
+            {confirmationError && hasValidPaymentParams && (
+              <button
+                type="button"
+                onClick={() => {
+                  confirmationStartedRef.current = true
+                  setConfirmationStatus('confirming')
+                  void confirmPaymentRequest()
+                }}
+                disabled={confirmPaymentMutation.isPending}
+                className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                다시 결제 확정하기
+              </button>
+            )}
             {!hasValidPaymentParams && (
               <Link to="/checkout" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
                 결제 화면으로 돌아가기
+              </Link>
+            )}
+            {(confirmationSuccess || confirmationError) && (
+              <Link to="/orders" className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                주문 내역 보기
               </Link>
             )}
           </div>
@@ -1939,6 +2017,24 @@ function PaymentFailPage() {
   const code = searchParams.get('code')
   const message = searchParams.get('message')
   const tossOrderId = searchParams.get('orderId')
+  const [orderCancellationMessage, setOrderCancellationMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const pendingOrderId = sessionStorage.getItem(pendingPaymentOrderKey)
+    if (!pendingOrderId) return
+
+    void cancelUnpaidOrder(pendingOrderId)
+      .then((canceled) => {
+        sessionStorage.removeItem(pendingPaymentOrderKey)
+        setOrderCancellationMessage(
+          canceled ? '결제 실패로 주문과 재고 예약을 해제했습니다.' : '주문 상태를 확인했습니다.',
+        )
+      })
+      .catch((error) => {
+        console.error('[Toss Payment] fail-page order cancel failed', error)
+        setOrderCancellationMessage('결제는 실패했지만 주문 취소 상태를 확인해주세요.')
+      })
+  }, [])
 
   return (
     <PublicLayout>
@@ -1947,6 +2043,7 @@ function PaymentFailPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 text-3xl">!</div>
           <h1 className="mt-6 text-2xl font-black text-slate-950">결제가 취소되었거나 실패했습니다</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">결제 확정은 처리되지 않았습니다. 결제 정보를 확인한 후 다시 시도해주세요.</p>
+          {orderCancellationMessage && <p className="mt-3 text-sm font-semibold text-emerald-700">{orderCancellationMessage}</p>}
           {(code || message || tossOrderId) && (
             <div className="mt-7 space-y-3 rounded-2xl bg-slate-50 p-5 text-left text-sm">
               {code && <div className="flex items-center justify-between gap-4"><span className="text-slate-500">오류 코드</span><span className="font-mono font-semibold text-slate-900">{code}</span></div>}
@@ -4289,6 +4386,8 @@ function App() {
       <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
       <Route path="/payment/fail" element={<PaymentFailPage />} />
+      <Route path="/payments/success" element={<PaymentSuccessPage />} />
+      <Route path="/payments/fail" element={<PaymentFailPage />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
