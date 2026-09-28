@@ -2,10 +2,13 @@
 
 ## 기본 설정
 
-API 기본 주소는 `.env`의 `VITE_API_BASE_URL`로 관리합니다.
+API 기본 주소는 `VITE_API_BASE_URL`로 관리합니다.
+
+- 로컬 개발(`vite`)에서는 `http://localhost:8080`을 사용합니다.
+- production 빌드에서는 배포 환경의 `VITE_API_BASE_URL` 값을 사용합니다.
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=https://your-production-backend.example.com
 ```
 
 `.env`는 커밋하지 않고 `.env.example`만 저장소에 공유합니다.
